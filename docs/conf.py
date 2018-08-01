@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# dbflux documentation build configuration file, created by
+# flux documentation build configuration file, created by
 # sphinx-quickstart on Mon Apr 16 21:22:43 2012.
 #
 # This file is execfile()d with the current directory set to its containing dir.
@@ -40,7 +40,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'dbflux'
+project = u'flux'
 copyright = u'2018, David Chan'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -164,7 +164,7 @@ html_static_path = ['_static']
 #html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'dbfluxdoc'
+htmlhelp_basename = 'fluxdoc'
 
 
 # -- Options for LaTeX output --------------------------------------------------
@@ -183,7 +183,7 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'dbflux.tex', u'dbflux Documentation',
+  ('index', 'flux.tex', u'flux Documentation',
    u'David Chan', 'manual'),
 ]
 
@@ -213,7 +213,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'dbflux', u'dbflux Documentation',
+    ('index', 'flux', u'flux Documentation',
      [u'David Chan'], 1)
 ]
 
@@ -227,8 +227,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'dbflux', u'dbflux Documentation',
-   u'David Chan', 'dbflux', 'One line description of project.',
+  ('index', 'flux', u'flux Documentation',
+   u'David Chan', 'flux', 'One line description of project.',
    'Miscellaneous'),
 ]
 

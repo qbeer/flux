@@ -1,6 +1,6 @@
 """
 Backend data-storage management. The data-store is initialized at load
-and provides the management over the DBFLUX_ROOT_DIR folder. It is also
+and provides the management over the flux_ROOT_DIR folder. It is also
 responsible for keeping track of tf-record data and making sure that
 everything ends up in the right place.
 """
@@ -11,7 +11,7 @@ import json
 import shutil
 
 from typing import Dict, Optional
-from dbflux.util.system import mkdir_p, md5
+from flux.util.system import mkdir_p, md5
 
 class KeyExistsError(Exception):
     def __init__(self, message):
@@ -24,14 +24,14 @@ class DataStore():
     and making sure that files exist on the data backend.
     """
 
-    def __init__(self, root_filepath: str, config_file: str='.dbflux_config.json') -> None:
+    def __init__(self, root_filepath: str, config_file: str='.flux_config.json') -> None:
         """Create a DataStore object
         
         Arguments:
             root_filepath {str} -- The root file-path of the data store
         
         Keyword Arguments:
-            config_file {str} -- The name of the configuration file (default: {'.dbflux_config.json'})
+            config_file {str} -- The name of the configuration file (default: {'.flux_config.json'})
         
         Returns:
             None

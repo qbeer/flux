@@ -3,7 +3,7 @@ Classes and methods for handling tf-records
 """
 
 # import numpy as np
-# from dbflux.backend.globals import DATA_STORE
+# from flux.backend.globals import DATA_STORE
 
 # try:
 #     import tensorflow as tf

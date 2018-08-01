@@ -2,8 +2,8 @@
 Backend data manipulation routines
 """
 
-from dbflux.backend.globals import DATA_STORE
-from dbflux.util.download import maybe_download
+from flux.backend.globals import DATA_STORE
+from flux.util.download import maybe_download
 
 def maybe_download_and_store_single_file(url: str, key: str, descritption: str=None) -> str:
     if not DATA_STORE.has_key(key):

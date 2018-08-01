@@ -6,11 +6,11 @@ import json
 
 import tensorflow as tf
 
-from dbflux.backend.globals import DATA_STORE
-from dbflux.backend.datastore import KeyExistsError
-from dbflux.backend.data import maybe_download_and_store_single_file
-from dbflux.processing.nlp.dictionary import NLPDictionary
-from dbflux.processing.nlp.util import get_token_span_from_char_span
+from flux.backend.globals import DATA_STORE
+from flux.backend.datastore import KeyExistsError
+from flux.backend.data import maybe_download_and_store_single_file
+from flux.processing.nlp.dictionary import NLPDictionary
+from flux.processing.nlp.util import get_token_span_from_char_span
 
 
 class Squad():

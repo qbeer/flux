@@ -8,13 +8,13 @@ with open('LICENSE') as f:
     license = f.read()
 
 setup(
-    name='dbflux',
+    name='flux',
     version='0.1.0',
     description='Data utilities for ML all in one place',
     long_description=readme,
     author='David Chan',
     author_email='davidchan@berkeley.edu',
-    url='https://github.com/davidmchan/dbflux',
+    url='https://github.com/davidmchan/flux',
     license=license,
     packages=find_packages(exclude=('tests', 'docs'))
 )

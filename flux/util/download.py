@@ -7,7 +7,7 @@ import sys
 import urllib
 import urllib.request
 
-from dbflux.util.system import mkdir_p
+from flux.util.system import mkdir_p
 
 
 def maybe_download(file_name:str, source_url:str, work_directory:str, postprocess=None):

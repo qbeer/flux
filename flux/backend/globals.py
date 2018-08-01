@@ -1,5 +1,5 @@
 
-from dbflux.backend.datastore import DataStore
+from flux.backend.datastore import DataStore
 import os
 from pathlib import Path
 

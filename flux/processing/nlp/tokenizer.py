@@ -8,7 +8,7 @@ from typing import List
 
 import nltk
 
-from dbflux.backend.globals import ROOT_FPATH
+from flux.backend.globals import ROOT_FPATH
 
 # Handle NLTK imports
 nltk.download('punkt', os.path.join(ROOT_FPATH, 'nltk'), quiet=True)

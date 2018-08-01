@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from .context import dbflux
+from .context import flux
 import unittest
 class BasicTestSuite(unittest.TestCase):
     """Basic test cases."""
