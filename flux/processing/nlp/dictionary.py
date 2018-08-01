@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-from flux.processing.nlp.tokenizer import PunktTokenizer
+from flux.processing.nlp.tokenizer import Tokenizer, PunktTokenizer, DelimiterTokenizer
 
 
 class NLPDictionary():
@@ -15,10 +15,14 @@ class NLPDictionary():
     def __init__(self, tokenizer: str='punkt', char_maxlen: Optional[int]=None,
                  word_maxlen: Optional[int]=None, pad_output: bool=True,
                  dtype: np.dtype=np.int64) -> None:
-        if tokenizer not in ['punkt']:
+
+        if tokenizer == 'punkt':
+            self.tokenizer: Tokenizer = PunktTokenizer()
+        elif tokenizer == 'space':
+            self.tokenizer: Tokenizer = DelimiterTokenizer(delimiter=' ')
+        else:
             raise ValueError("Invalid tokenizer!")
 
-        self.tokenizer = PunktTokenizer()
         self.word_dictionary: Dict[str, int] = {'': 0}
         self.char_dictioanary: Dict[str, int] = {'': 0}
         self.word_maxlen = word_maxlen

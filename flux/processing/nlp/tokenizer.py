@@ -27,6 +27,17 @@ class Tokenizer(ABC):
         pass
 
 
+class DelimiterTokenizer(Tokenizer):
+    """Tokenization based on split
+    """
+
+    def __init__(self, delimiter=' ') -> None:
+        self.delimiter = delimiter
+
+    def parse(self, input_string: str) -> List[str]:
+        return input_string.split(self.delimiter)
+
+
 class PunktTokenizer(Tokenizer):
     """Simple NLTK-based tokenizer
     """
