@@ -14,6 +14,7 @@ if not initialized:
             return default
         else:
             return str(os.environ.get(var_name))
+            
     ROOT_FPATH = get_var('DBFLUX_ROOT',os.path.join(str(Path.home()),'.dbflux'))
     CONFIG_FILE = get_var('DBFLUX_CONFIG','dbflux_config.json')
     DATA_STORE = DataStore(root_filepath=ROOT_FPATH, config_file=CONFIG_FILE)
