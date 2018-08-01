@@ -12,11 +12,14 @@ import shutil
 
 from typing import Dict, Optional
 from flux.util.system import mkdir_p, md5
+from flux.util.logging import log_warning
+
 
 class KeyExistsError(Exception):
     def __init__(self, message):
         # Call the base class constructor with the parameters it needs
         super().__init__(message)
+
 
 class DataStore():
     """Class for managing back-end data files. This data-file store
@@ -26,13 +29,13 @@ class DataStore():
 
     def __init__(self, root_filepath: str, config_file: str='.flux_config.json') -> None:
         """Create a DataStore object
-        
+
         Arguments:
             root_filepath {str} -- The root file-path of the data store
-        
+
         Keyword Arguments:
             config_file {str} -- The name of the configuration file (default: {'.flux_config.json'})
-        
+
         Returns:
             None
         """
@@ -57,12 +60,12 @@ class DataStore():
         self.working_directory = os.path.join(self.root_filepath, 'work')
         if not os.path.exists(self.working_directory):
             mkdir_p(self.working_directory)
-        
+
         self.flush()
 
-    def add_file(self, key: str, fpath: str, description: str=None) -> Dict[str, Optional[str]]:
+    def add_file(self, key: str, fpath: str, description: str=None, force: bool=False) -> Dict[str, Optional[str]]:
 
-        if key in self.db:
+        if key in self.db and not force:
             # The file already exists in our data store
             return self.db[key]
 
@@ -140,23 +143,22 @@ class DataStore():
 
     def has_key(self, key: str) -> bool:
         """Return if the data-store contains a particular key
-        
+
         Arguments:
             key {str} -- The key to test
-        
+
         Returns:
             bool -- If the key is in the data store
         """
 
         return key in self.db
 
-    def __getitem__(self, key:str) -> str:
+    def __getitem__(self, key: str) -> str:
         return str(self.db[key]['fpath'])
 
-    
-    def create_key(self, key: str, fname: str, description: str=None) -> str:
+    def create_key(self, key: str, fname: str, description: str=None, force: bool=False) -> str:
         if key in self.db:
-            if self.is_valid(key):
+            if self.is_valid(key) and not force:
                 raise KeyExistsError('Can\'t create key! It already exists!')
             else:
                 self.remove_file(key)
@@ -170,7 +172,7 @@ class DataStore():
         # If the directory doesn't exist in our local file-store create it
         if not os.path.exists(file_to_location):
             mkdir_p(os.path.join(self.root_filepath, *file_root_location))
-        
+
         db_entry = {
             'fpath': os.path.join(file_to_location, fname),
             'hash': None,
@@ -184,18 +186,20 @@ class DataStore():
     def update_hash(self, key: str) -> None:
         if key in self.db:
             self.db[key]['hash'] = str(md5(str(self.db[key]['fpath'])))
+            self.flush()
 
     def is_valid(self, key: str) -> bool:
-        if key in self.db:
-            if str(self.db[key]['hash']) == str(md5(str(self.db[key]['fpath']))):
-                return True
+        try:
+            if key in self.db:
+                if str(self.db[key]['hash']) == str(md5(str(self.db[key]['fpath']))):
+                    return True
+        except Exception as ex:
+            log_warning('Key ({}) may have been corrupted: {}'.format(key, str(ex)))
         return False
-
-        
 
     def flush(self,) -> None:
         """Flush the DB data to disk
-        
+
         Returns:
             None
         """
@@ -204,11 +208,13 @@ class DataStore():
             json.dump(self.db, out_file)
 
     def at_terminate(self,):
-        """The code which is run at the termination of the 
+        """The code which is run at the termination of the
         program. In our case, this saves the db-store data
         """
         # Flush the database
         self.flush()
         # Clean the working directory
-        shutil.rmtree(self.working_directory)
-        
+        try:
+            shutil.rmtree(self.working_directory)
+        except Exception as ex:
+            log_warning('Error removing working directory: {}'.format(str(ex)))

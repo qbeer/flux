@@ -1,5 +1,5 @@
 """
-Dictionary class for constructing and maintaining 
+Dictionary class for constructing and maintaining
 NLP token dictionaries
 """
 
@@ -121,7 +121,6 @@ class NLPDictionary():
             output_char_array = np.array(output_data)
 
         return (output_word_array, output_char_array)
-
 
     def dense_parse_tokens(self, input_tokens: List[str]) -> Tuple[np.ndarray, np.ndarray]:
         # Tokenize the sentence
