@@ -18,7 +18,7 @@ from flux.util.logging import log_message
 
 class NLQA():
 
-    def __init__(self, version='0.1', num_parallel_reads: Optional[int]=None) -> None:
+    def __init__(self, version='0.2', num_parallel_reads: Optional[int]=None, force_rebuild=False) -> None:
 
         self.version = version
         self.num_parallel_reads = num_parallel_reads
@@ -27,6 +27,16 @@ class NLQA():
             # Download the training data
             self.json_key = maybe_download_and_store_single_file(
                 url='https://newslens.berkeley.edu/QA_dataset0.1.json', key='newslens/json_0.1')
+
+            self.mwl = 766
+            self.mcl = 37
+
+        if self.version == '0.2':
+            # Download the training data
+            self.json_key = maybe_download_and_store_single_file(
+                url='https://newslens.berkeley.edu/QA_dataset0.2.json', key='newslens/json_0.2')
+            self.mwl = 595
+            self.mcl = 16
         else:
             raise ValueError("Invalid version for NLQA dataset")
 
@@ -34,11 +44,8 @@ class NLQA():
         with open(DATA_STORE[self.json_key], 'r') as json_file:
             self.json = json.loads(json_file.read())
 
-        self.mwl = 766
-        self.mcl = 37
-
         # Parse the JSON
-        if DATA_STORE.is_valid('newslens/dictionary_{}'.format(self.version)):
+        if not force_rebuild and DATA_STORE.is_valid('newslens/dictionary_{}'.format(self.version)):
             with open(DATA_STORE['newslens/dictionary_{}'.format(self.version)], 'rb') as pkl_file:
                 self.dictionary = pickle.load(pkl_file)
         else:
@@ -46,17 +53,20 @@ class NLQA():
                                             char_maxlen=self.mcl, word_maxlen=self.mwl, pad_output=True)
 
         # If the tf-records don't exist, build them
-        if not DATA_STORE.is_valid('newslens/tfrecord/data_{}'.format(self.version)):
+        if force_rebuild or not DATA_STORE.is_valid('newslens/tfrecord/train/data_{}'.format(self.version)) or not DATA_STORE.is_valid('newslens/tfrecord/val/data_{}'.format(self.version)):
             log_message('Building data...')
 
             # Create the tf-record writer
             train_record_writer = tf.python_io.TFRecordWriter(
-                DATA_STORE.create_key('newslens/tfrecord/train/data_{}'.format(self.version), 'data.tfrecords'))
+                DATA_STORE.create_key('newslens/tfrecord/train/data_{}'.format(self.version), 'data.tfrecords', force=force_rebuild))
             val_record_writer = tf.python_io.TFRecordWriter(
-                DATA_STORE.create_key('newslens/tfrecord/val/data_{}'.format(self.version), 'data.tfrecords'))
+                DATA_STORE.create_key('newslens/tfrecord/val/data_{}'.format(self.version), 'data.tfrecords', force=force_rebuild))
 
             # Parse the data into tf-records
-            for record in self.json:
+            for index, record in enumerate(self.json):
+                if index % 100 == 0:
+                    log_message('Finished {}/{}'.format(index, len(self.json)))
+
                 tokens = record['masked_document'].split()
                 context_dense = self.dictionary.dense_parse(
                     record['masked_document'])
@@ -107,23 +117,23 @@ class NLQA():
             DATA_STORE.update_hash(
                 'newslens/tfrecord/val/data_{}'.format(self.version))
 
-            # Save the dictionary
-            with open(DATA_STORE.create_key('newslens/dictionary_{}'.format(self.version), 'dict.pkl', force=True), 'wb') as pkl_file:
-                pickle.dump(self.dictionary, pkl_file)
-                DATA_STORE.update_hash(
-                    'newslens/dictionary_{}'.format(self.version))
+        # Save the dictionary
+        with open(DATA_STORE.create_key('newslens/dictionary_{}'.format(self.version), 'dict.pkl', force=True), 'wb') as pkl_file:
+            pickle.dump(self.dictionary, pkl_file)
+            DATA_STORE.update_hash(
+                'newslens/dictionary_{}'.format(self.version))
 
-            # Compute the number of training examples in the document
-            self.num_dev_examples = sum(
-                1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['newslens/tfrecord/val/data_{}'.format(self.version)]))
-            self.num_train_examples = sum(
-                1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['newslens/tfrecord/train/data_{}'.format(self.version)]))
+        # Compute the number of training examples in the document
+        self.num_dev_examples = sum(
+            1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['newslens/tfrecord/val/data_{}'.format(self.version)]))
+        self.num_train_examples = sum(
+            1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['newslens/tfrecord/train/data_{}'.format(self.version)]))
 
-            self.word_vocab_size = len(self.dictionary.word_dictionary)
-            self.char_vocab_size = len(self.dictionary.char_dictioanary)
+        self.word_vocab_size = len(self.dictionary.word_dictionary)
+        self.char_vocab_size = len(self.dictionary.char_dictioanary)
 
-            self._dev_db = None
-            self._train_db = None
+        self._dev_db = None
+        self._train_db = None
 
     @property
     def train_db(self,):
