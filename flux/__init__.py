@@ -1,1 +1,1 @@
-import flux.backend.globals
+import flux.backend.globals  # noqa: F401

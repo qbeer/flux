@@ -18,10 +18,14 @@ from flux.util.logging import log_message
 
 class NLQA():
 
-    def __init__(self, version='0.2', num_parallel_reads: Optional[int]=None, force_rebuild=False) -> None:
+    def __init__(self, version='0.2', num_parallel_reads: Optional[int]=None, force_rebuild=False,mask=True) -> None:
 
         self.version = version
         self.num_parallel_reads = num_parallel_reads
+        self.mask = mask
+
+        # TODO: Support stem for masked/unmasked versions of the newslens
+        # document
 
         if self.version == '0.1':
             # Download the training data
@@ -67,12 +71,22 @@ class NLQA():
                 if index % 100 == 0:
                     log_message('Finished {}/{}'.format(index, len(self.json)))
 
-                tokens = record['masked_document'].split()
-                context_dense = self.dictionary.dense_parse(
-                    record['masked_document'])
+                if mask:
+                    tokens = record['masked_document'].split()
+                    context_dense = self.dictionary.dense_parse(
+                        record['masked_document'])
+                    label = record['masked_answer']
+                else:
+                    tokens = record['unmasked_document']
+                    context_dense = self.dictionary.dense_parse(
+                        record['unmasked_document'])
+                    label = record['real_answer']
+
                 question_dense = self.dictionary.dense_parse(
                     record['question'])
-                label = record['masked_answer']
+
+                # TODO: Support masking indices which will will have two proper values
+                # for start and end
                 label_indices = [x for x in range(
                     len(tokens)) if tokens[x] == label]
 

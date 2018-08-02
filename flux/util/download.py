@@ -40,18 +40,16 @@ def maybe_download(file_name:str, source_url:str, work_directory:str, postproces
 
 def maybe_download_text(url:str, charset: str='utf-8') -> str:
     """Get URL contents as a string
-    
+
     Arguments:
         url {str} -- The URL to download from
-    
+
     Keyword Arguments:
         charset {str} -- The character-set to use for decoding (default: {'utf-8'})
-    
+
     Returns:
         str -- The decoded data
     """
-
-
     return urllib.request.urlopen(url).read().decode(charset)
 
 

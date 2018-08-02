@@ -12,7 +12,7 @@ if not initialized:
     log_message('Initializing...')
     # Get the values from the path
 
-    def get_var(var_name: str, default: str):
+    def get_var(var_name: str, default: str) -> str:
         if os.environ.get(var_name) is None:
             return default
         else:
