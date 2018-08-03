@@ -246,7 +246,7 @@ class Squad():
     def dev_db(self,):
         if self._dev_db is None:
             self._dev_db = tf.data.TFRecordDataset(
-                DATA_STORE['squad/tfrecord/train'], num_parallel_reads=self.num_parallel_reads).map(self._map_fn)
+                DATA_STORE['squad/tfrecord/dev'], num_parallel_reads=self.num_parallel_reads).map(self._map_fn)
         return self._dev_db
 
     def _map_fn(self, serialized_example):
