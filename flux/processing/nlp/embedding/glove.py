@@ -162,3 +162,6 @@ class GloveEmbedding():
             self.embedding_matrix[dictionary[key]] = self._get_vec(key)
 
         return self.embedding_matrix
+
+    def get_word_vector(self, input_string: str) -> np.ndarray:
+        return self._get_vec(input_string)

@@ -6,13 +6,18 @@ import os
 from abc import ABC, abstractmethod
 from typing import List
 
-import nltk
-
 from flux.backend.globals import ROOT_FPATH
 
 # Handle NLTK imports
-nltk.download('punkt', os.path.join(ROOT_FPATH, 'nltk'), quiet=True)
-nltk.data.path.append(os.path.join(ROOT_FPATH, 'nltk'))
+try:
+    import nltk
+    nltk.download('punkt', os.path.join(ROOT_FPATH, 'nltk'), quiet=True)
+    nltk.data.path.append(os.path.join(ROOT_FPATH, 'nltk'))
+    NLTK_IMPORTED = True
+except Exception as ex:
+    from flux.util.logging import log_warning
+    log_warning('The PunktTokenizer requires NLTK. If you\'re using this, install NLTK using \'pip install nltk\'')
+    NLTK_IMPORTED = False
 
 
 class Tokenizer(ABC):
@@ -43,7 +48,8 @@ class PunktTokenizer(Tokenizer):
     """
 
     def __init__(self, ) -> None:
-        pass
+        if not NLTK_IMPORTED:
+            raise NotImplementedError("NLTK Required to use the Punkt Tokenizer")
 
     def parse(self, input_string: str) -> List[str]:
         return nltk.word_tokenize(input_string)
