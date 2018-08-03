@@ -5,6 +5,7 @@ System level utilities for manipulating file information
 import os
 import errno
 import hashlib
+import zipfile
 
 
 def mkdir_p(fpath: str) -> None:
@@ -37,3 +38,17 @@ def md5(path: str) -> str:
         for chunk in iter(lambda: f.read(4096), b""):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
+
+
+def unzip(path: str):
+    """Unzip a file in the current directory
+
+    Arguments:
+        path {str} -- The path to the file to unzip
+    """
+    if (path.endswith('.zip')):
+        zip_ref = zipfile.ZipFile(path, 'r')
+        zip_ref.extractall(path='/'.join(path.split('/')[:-1]))
+        zip_ref.close()
+    else:
+        raise ValueError('Not a .zip file: {}'.format(path))

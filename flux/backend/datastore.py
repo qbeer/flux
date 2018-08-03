@@ -159,7 +159,7 @@ class DataStore():
     def create_key(self, key: str, fname: str, description: str=None, force: bool=False) -> str:
         if key in self.db:
             if self.is_valid(key) and not force:
-                raise KeyExistsError('Can\'t create key! It already exists!')
+                raise KeyExistsError('Can\'t create key: {}! It already exists!'.format(key))
             else:
                 self.remove_file(key)
 
@@ -188,11 +188,19 @@ class DataStore():
             self.db[key]['hash'] = str(md5(str(self.db[key]['fpath'])))
             self.flush()
 
-    def is_valid(self, key: str) -> bool:
+    def is_valid(self, key: str, nohashcheck=False) -> bool:
         try:
             if key in self.db:
-                if str(self.db[key]['hash']) == str(md5(str(self.db[key]['fpath']))):
+                if not nohashcheck:
+                    if str(self.db[key]['hash']) == str(md5(str(self.db[key]['fpath']))):
+                        return True
+                    else:
+                        return False
+                else:
                     return True
+        except FileNotFoundError as ex:
+            log_warning('Key ({}) doesn\'t exist/has moved :O'.format(key))
+            return False
         except Exception as ex:
             log_warning('Key ({}) may have been corrupted: {}'.format(key, str(ex)))
         return False

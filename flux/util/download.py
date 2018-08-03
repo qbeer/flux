@@ -8,6 +8,7 @@ import urllib
 import urllib.request
 
 from flux.util.system import mkdir_p
+from flux.util.logging import log_message
 
 
 def maybe_download(file_name:str, source_url:str, work_directory:str, postprocess=None):
@@ -26,12 +27,12 @@ def maybe_download(file_name:str, source_url:str, work_directory:str, postproces
     # Check if the file-exists, if not, retrieve it
     filepath = os.path.join(work_directory, file_name)
     if not os.path.exists(filepath):
-        print('Downloading {} from {}, please wait...'.format(
+        log_message('Downloading {} from {}, please wait...'.format(
             file_name, source_url))
         filepath, _ = urllib.request.urlretrieve(
             source_url, filepath, progress_bar_report_hook)
         stat_info = os.stat(filepath)
-        print('Successfully downloaded {} ({} bytes).'.format(
+        log_message('Successfully downloaded {} ({} bytes).'.format(
             file_name, stat_info.st_size))
         if postprocess is not None:
             postprocess(filepath)
