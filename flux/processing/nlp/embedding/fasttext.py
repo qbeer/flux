@@ -15,7 +15,7 @@ from typing import Dict
 
 class FastTextEmbedding():
 
-    def __init__(self, model_path:str='model.bin') -> None:
+    def __init__(self, model_path:str='fasttext_vectors.bin') -> None:
 
         # Need to download the model from Philippe
         self.model = fastText.load_model(model_path)
