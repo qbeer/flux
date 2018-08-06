@@ -19,10 +19,10 @@ from flux.util.logging import log_message
 
 class Squad():
 
-    def __init__(self, version: str='2.0', num_parallel_reads: Optional[int]=None) -> None:
+    def __init__(self, version: str='2.0', num_parallel_reads: Optional[int]=None, nohashcheck=False) -> None:
 
         self.num_parallel_reads = num_parallel_reads
-        self.num_dev_examples = None
+        self.num_val_examples = None
         self.num_train_examples = None
 
         if version == '2.0':
@@ -41,7 +41,7 @@ class Squad():
             self.mcl = 37
 
             # Parse the JSON
-            if DATA_STORE.is_valid('squad/dictionary'):
+            if DATA_STORE.is_valid('squad/dictionary', nohashcheck=nohashcheck):
                 with open(DATA_STORE['squad/dictionary'], 'rb') as pkl_file:
                     self.dictionary = pickle.load(pkl_file)
             else:
@@ -49,7 +49,7 @@ class Squad():
                     char_maxlen=self.mcl, word_maxlen=self.mwl, pad_output=True)
 
             # Build the training set if necessary
-            if not DATA_STORE.is_valid('squad/tfrecord/train'):
+            if not DATA_STORE.is_valid('squad/tfrecord/train', nohashcheck=nohashcheck):
                 num_errors = 0
                 num_documents = 0
                 log_message('Building training data...')
@@ -130,7 +130,7 @@ class Squad():
                 self.num_train_examples = num_documents
 
             # Build the validation set if necessary
-            if not DATA_STORE.is_valid('squad/tfrecord/dev'):
+            if not DATA_STORE.is_valid('squad/tfrecord/dev', nohashcheck=nohashcheck):
                 num_errors = 0
                 num_documents = 0
                 log_message('Building validation data...')
@@ -208,7 +208,7 @@ class Squad():
                                 num_documents += 1
                 tf_record_writer.close()
                 DATA_STORE.update_hash('squad/tfrecord/dev')
-                self.num_dev_examples = num_documents
+                self.num_val_examples = num_documents
 
             self.train_fpath = DATA_STORE['squad/tfrecord/train']
             self.dev_fpath = DATA_STORE['squad/tfrecord/dev']
@@ -218,8 +218,8 @@ class Squad():
                 pickle.dump(self.dictionary, pkl_file)
                 DATA_STORE.update_hash('squad/dictionary')
 
-            if self.num_dev_examples is None:
-                self.num_dev_examples = sum(
+            if self.num_val_examples is None:
+                self.num_val_examples = sum(
                     1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['squad/tfrecord/dev']))
             if self.num_train_examples is None:
                 self.num_train_examples = sum(
@@ -228,7 +228,7 @@ class Squad():
             self.word_vocab_size = len(self.dictionary.word_dictionary)
             self.char_vocab_size = len(self.dictionary.char_dictioanary)
 
-            self._dev_db = None
+            self._val_db = None
             self._train_db = None
 
         else:
@@ -243,11 +243,11 @@ class Squad():
         return self._train_db
 
     @property
-    def dev_db(self,):
-        if self._dev_db is None:
-            self._dev_db = tf.data.TFRecordDataset(
+    def val_db(self,):
+        if self._val_db is None:
+            self._val_db = tf.data.TFRecordDataset(
                 DATA_STORE['squad/tfrecord/dev'], num_parallel_reads=self.num_parallel_reads).map(self._map_fn)
-        return self._dev_db
+        return self._val_db
 
     def _map_fn(self, serialized_example):
             # Parse the DB out from the tf_record file
@@ -279,6 +279,6 @@ class Squad():
     def info(self, ) -> str:
 
         return(tabulate([['Num Train Examples', self.num_train_examples],
-                        ['Num Dev Examples', self.num_dev_examples],
+                        ['Num Val Examples', self.num_val_examples],
                         ['Word Vocab Size', self.word_vocab_size],
                         ['Char Vocab Size', self.char_vocab_size]]))

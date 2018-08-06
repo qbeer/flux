@@ -156,6 +156,7 @@ class GloveEmbedding():
 
     def GenerateMatrix(self, dictionary: Dict[str, int]) -> np.ndarray:
         # Determine the length of the embedding matrix
+        log_message('Generating Embedding Matrix...')
         vocab_size = len(dictionary)
         self.embedding_matrix = np.zeros(shape=(vocab_size, self.dimension))
         for key in dictionary.keys():
