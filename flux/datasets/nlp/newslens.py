@@ -18,15 +18,17 @@ from flux.util.logging import log_message
 
 class NLQA():
 
-    def __init__(self, version='0.2', num_parallel_reads: Optional[int]=None,
+    def __init__(self, version='0.3', num_parallel_reads: Optional[int]=None,
                  force_rebuild: bool=False, mask: bool=True,
-                 add_start_tokens: bool=True, add_stop_tokens: bool=True) -> None:
+                 add_start_tokens: bool=True, add_stop_tokens: bool=True,
+                 use_qam: bool=False) -> None:
 
         self.version = version
         self.num_parallel_reads = num_parallel_reads
         self.mask = mask
         self.add_start_tokens = add_start_tokens
         self.add_stop_tokens = add_stop_tokens
+        self.use_qam = use_qam
 
         # We keep one copy of masked data, and one copy of unmasked data
         if self.mask:
@@ -48,6 +50,12 @@ class NLQA():
             self.json_key = maybe_download_and_store_single_file(
                 url='https://newslens.berkeley.edu/QA_dataset0.2.json', key='newslens/json_0.2')
             self.mwl = 595
+            self.mcl = 16
+        elif self.version == '0.3':
+            # Download the training data
+            self.json_key = maybe_download_and_store_single_file(
+                url='https://newslens.berkeley.edu/QA_dataset0.3.json', key='newslens/json_0.3')
+            self.mwl = 600
             self.mcl = 16
         else:
             raise ValueError("Invalid version for NLQA dataset")
@@ -91,8 +99,13 @@ class NLQA():
                         answer_text = record['masked_answer']
                     else:
                         answer_text = record['real_answer']
+
                 if self.add_start_tokens:
                     answer_text = '<START> ' + answer_text
+                if not self.add_stop_tokens:
+                    question_answer_dense = self.dictionary.dense_parse(record['question'].strip() + ' ' + answer_text.strip() + '<STOP>')
+                else:
+                    question_answer_dense = self.dictionary.dense_parse(record['question'].strip() + ' ' + answer_text.strip())
 
                 if self.mask:
                     tokens = record['masked_document'].split(' ')
@@ -138,6 +151,8 @@ class NLQA():
                         int64_list=tf.train.Int64List(value=question_dense[1].flatten()))
                     feature_dict['answer_word_embedding'] = tf.train.Feature(
                         int64_list=tf.train.Int64List(value=answer_dense[0].flatten()))
+                    feature_dict['question_answer_word_embedding'] = tf.train.Feature(
+                        int64_list=tf.train.Int64List(value=question_answer_dense[0].flatten()))
                     feature_dict['word_maxlen'] = tf.train.Feature(
                         int64_list=tf.train.Int64List(value=[self.mwl]))
                     feature_dict['char_maxlen'] = tf.train.Feature(
@@ -209,6 +224,7 @@ class NLQA():
                       'token_label_start': tf.FixedLenFeature([], tf.int64),
                       'token_label_end': tf.FixedLenFeature([], tf.int64),
                       'answer_word_embedding': tf.FixedLenFeature([self.mwl], tf.int64),
+                      'question_answer_word_embedding': tf.FixedLenFeature([self.mwl], tf.int64),
                       })
 
         cwe = features['context_word_embedding']
@@ -217,7 +233,10 @@ class NLQA():
         qce = features['question_char_embedding']
         tls = tf.cast(features['token_label_start'], tf.int64)
         tle = tf.cast(features['token_label_end'], tf.int64)
-        ans = features['answer_word_embedding']
+        if self.use_qam:
+            ans = features['answer_word_embedding']
+        else:
+            ans = features['question_answer_word_embedding']
 
         return (cwe, qwe, cce, qce, tls, tle, ans)
 
