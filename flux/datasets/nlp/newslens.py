@@ -20,7 +20,7 @@ class NLQA():
 
     def __init__(self, version='0.3', num_parallel_reads: Optional[int]=None,
                  force_rebuild: bool=False, mask: bool=True,
-                 add_start_tokens: bool=True, add_stop_tokens: bool=True,
+                 add_start_tokens: bool=False, add_stop_tokens: bool=False,
                  use_qam: bool=False) -> None:
 
         self.version = version
@@ -103,33 +103,35 @@ class NLQA():
                 if self.add_start_tokens:
                     answer_text = '<START> ' + answer_text
                 if not self.add_stop_tokens:
-                    question_answer_dense = self.dictionary.dense_parse(record['question'].strip() + ' ' + answer_text.strip() + '<STOP>')
+                    question_answer_dense, qa_len = self.dictionary.dense_parse(record['question'].strip() + ' ' + answer_text.strip() + '<STOP>')
                 else:
-                    question_answer_dense = self.dictionary.dense_parse(record['question'].strip() + ' ' + answer_text.strip())
+                    question_answer_dense, qa_len = self.dictionary.dense_parse(record['question'].strip() + ' ' + answer_text.strip())
 
                 if self.mask:
                     tokens = record['masked_document'].split(' ')
-                    context_dense = self.dictionary.dense_parse(
+                    context_dense, context_len = self.dictionary.dense_parse(
                         record['masked_document'])
                     label = record['masked_answer'].split(' ')
                 else:
                     tokens = record['unmasked_document'].split(' ')
-                    context_dense = self.dictionary.dense_parse(
+                    context_dense, context_len = self.dictionary.dense_parse(
                         record['unmasked_document'])
                     label = record['real_answer'].split(' ')
 
-                answer_dense = self.dictionary.dense_parse(answer_text)
+                answer_dense, answer_len = self.dictionary.dense_parse(answer_text)
 
-                question_dense = self.dictionary.dense_parse(
+                question_dense, question_len = self.dictionary.dense_parse(
                     record['question'])
 
-                label_index_start = [x for x in range(
-                    len(tokens)) if tokens[x] == label[0]]
+                potential_starts = [x for x in range(len(tokens)) if tokens[x] == label[0]]
+                label_index_start: List[int] = []
                 label_index_end: List[int] = []
-                for i in label_index_start:
+                for i in potential_starts:
                     idx = [x for x in range(
                         i, len(tokens)) if tokens[x] == label[-1]]
-                    label_index_end.append(idx[0])
+                    if len(idx) > 0:
+                        label_index_start.append(i)
+                        label_index_end.append(idx[0])
                 label_indices = zip(label_index_start, label_index_end)
 
                 if np.random.random() < 0.95:
@@ -161,6 +163,14 @@ class NLQA():
                         int64_list=tf.train.Int64List(value=[l_ind[0]]))
                     feature_dict['token_label_end'] = tf.train.Feature(
                         int64_list=tf.train.Int64List(value=[l_ind[1]]))
+                    feature_dict['context_word_len'] = tf.train.Feature(
+                        int64_list=tf.train.Int64List(value=[context_len]))
+                    feature_dict['question_word_len'] = tf.train.Feature(
+                        int64_list=tf.train.Int64List(value=[question_len]))
+                    feature_dict['question_answer_word_len'] = tf.train.Feature(
+                        int64_list=tf.train.Int64List(value=[qa_len]))
+                    feature_dict['answer_word_len'] = tf.train.Feature(
+                        int64_list=tf.train.Int64List(value=[answer_len]))
 
                     example = tf.train.Example(
                         features=tf.train.Features(feature=feature_dict))
@@ -225,6 +235,10 @@ class NLQA():
                       'token_label_end': tf.FixedLenFeature([], tf.int64),
                       'answer_word_embedding': tf.FixedLenFeature([self.mwl], tf.int64),
                       'question_answer_word_embedding': tf.FixedLenFeature([self.mwl], tf.int64),
+                      'context_word_len': tf.FixedLenFeature([], tf.int64),
+                      'question_word_len': tf.FixedLenFeature([], tf.int64),
+                      'question_answer_word_len': tf.FixedLenFeature([], tf.int64),
+                      'answer_word_len': tf.FixedLenFeature([], tf.int64),
                       })
 
         cwe = features['context_word_embedding']
@@ -235,10 +249,17 @@ class NLQA():
         tle = tf.cast(features['token_label_end'], tf.int64)
         if self.use_qam:
             ans = features['answer_word_embedding']
+            awl = tf.cast(features['answer_word_len'], tf.int64)
         else:
             ans = features['question_answer_word_embedding']
+            awl = tf.cast(features['question_answer_word_len'], tf.int64)
 
-        return (cwe, qwe, cce, qce, tls, tle, ans)
+        cwl = tf.cast(features['context_word_len'], tf.int64)
+        qwl = tf.cast(features['question_word_len'], tf.int64)
+        
+        
+
+        return (cwe, qwe, cce, qce, tls, tle, ans, cwl, qwl, awl)
 
     def info(self, ) -> str:
         return(tabulate([['Num Train Examples', self.num_train_examples],
