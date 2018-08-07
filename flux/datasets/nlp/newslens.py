@@ -256,8 +256,6 @@ class NLQA():
 
         cwl = tf.cast(features['context_word_len'], tf.int64)
         qwl = tf.cast(features['question_word_len'], tf.int64)
-        
-        
 
         return (cwe, qwe, cce, qce, tls, tle, ans, cwl, qwl, awl)
 

@@ -162,11 +162,11 @@ class Squad():
         feature_dict['token_span_end'] = tf.train.Feature(
             int64_list=tf.train.Int64List(value=[token_span_end]))
         feature_dict['context_word_len'] = tf.train.Feature(
-            int64_list=tf.train.Int64List(value=[token_span_end]))
+            int64_list=tf.train.Int64List(value=[context_len]))
         feature_dict['question_word_len'] = tf.train.Feature(
-            int64_list=tf.train.Int64List(value=[token_span_end]))
+            int64_list=tf.train.Int64List(value=[question_len]))
         feature_dict['answer_word_len'] = tf.train.Feature(
-            int64_list=tf.train.Int64List(value=[token_span_end]))
+            int64_list=tf.train.Int64List(value=[answer_len]))
 
         return feature_dict
 
