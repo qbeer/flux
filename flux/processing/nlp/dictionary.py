@@ -51,7 +51,7 @@ class NLPDictionary():
                 self.word_dictionary[token] = len(self.word_dictionary)
             output_array[idx] = self.word_dictionary[token]
 
-        return output_array
+        return output_array, len(tokens)
 
     def char_parse(self, input_string: str) -> np.ndarray:
         # Tokenize the sentence
@@ -81,7 +81,7 @@ class NLPDictionary():
                     tok_enc.append(self.char_dictioanary[c])
                 output_data.append(np.array(tok_enc))
             output_array = np.array(output_data)
-        return output_array
+        return output_array, len(tokens)
 
     def dense_parse(self, input_string: str) -> Tuple[np.ndarray, np.ndarray]:
         # Tokenize the sentence
@@ -124,7 +124,7 @@ class NLPDictionary():
                 output_data.append(np.array(tok_enc))
             output_char_array = np.array(output_data)
 
-        return (output_word_array, output_char_array)
+        return (output_word_array, output_char_array), len(tokens)
 
     def dense_parse_tokens(self, input_tokens: List[str]) -> Tuple[np.ndarray, np.ndarray]:
         # Tokenize the sentence
@@ -167,4 +167,4 @@ class NLPDictionary():
                 output_data.append(np.array(tok_enc))
             output_char_array = np.array(output_data)
 
-        return (output_word_array, output_char_array)
+        return (output_word_array, output_char_array), len(tokens)
