@@ -14,7 +14,6 @@ from flux.util.system import mkdir_p
 tqdm.monitor_interval = 0
 
 
-
 class TqdmUpTo(tqdm):
     """Provides `update_to(n)` which uses `tqdm.update(delta_n)`."""
     def update_to(self, b=1, bsize=1, tsize=None):
@@ -55,7 +54,7 @@ def maybe_download(file_name:str, source_url:str, work_directory:str, postproces
         log_message('Successfully downloaded {} ({} bytes).'.format(
             file_name, stat_info.st_size))
         if postprocess is not None:
-            postprocess(filepath)
+            filepath = postprocess(filepath)
     return filepath
 
 

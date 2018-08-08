@@ -191,7 +191,7 @@ class DataStore():
     def is_valid(self, key: str, nohashcheck=False) -> bool:
         try:
             if key in self.db:
-                if not nohashcheck:
+                if not nohashcheck and self.db[key]['hash'] is not None:
                     if str(self.db[key]['hash']) == str(md5(str(self.db[key]['fpath']))):
                         return True
                     else:

@@ -6,6 +6,8 @@ import os
 import errno
 import hashlib
 import zipfile
+import tarfile
+from flux.util.logging import log_message
 
 
 def mkdir_p(fpath: str) -> None:
@@ -40,15 +42,33 @@ def md5(path: str) -> str:
     return hash_md5.hexdigest()
 
 
-def unzip(path: str):
+def unzip(path: str) -> str:
     """Unzip a file in the current directory
 
     Arguments:
         path {str} -- The path to the file to unzip
     """
     if (path.endswith('.zip')):
+        log_message('Decompressing: {}'.format(path))
         zip_ref = zipfile.ZipFile(path, 'r')
         zip_ref.extractall(path='/'.join(path.split('/')[:-1]))
         zip_ref.close()
+        return '/'.join(path.split('/')[:-1])
     else:
         raise ValueError('Not a .zip file: {}'.format(path))
+
+
+def untar(path: str) -> str:
+    """Untar a file
+
+    Arguments:
+        path {string} -- The file to untar
+    """
+    if (path.endswith("tar.gz")):
+        log_message('Decompressing: {}'.format(path))
+        tar = tarfile.open(path)
+        tar.extractall(path='/'.join(path.split('/')[:-1]))
+        tar.close()
+        return '/'.join(path.split('/')[:-1])
+    else:
+        raise ValueError('Not a .tar.gz file: {}'.format(path))
