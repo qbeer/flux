@@ -4,6 +4,7 @@ Data download and parsing for the squad dataset
 
 import json
 import pickle
+import tqdm
 
 import tensorflow as tf
 
@@ -40,14 +41,14 @@ class Squad():
             # Setup some baked constants in the dataset
             self.mwl = 766
             self.mcl = 37
+            self.mql = 30
 
             # Parse the JSON
             if not force_rebuild and DATA_STORE.is_valid('squad/dictionary', nohashcheck=nohashcheck):
                 with open(DATA_STORE['squad/dictionary'], 'rb') as pkl_file:
                     self.dictionary = pickle.load(pkl_file)
             else:
-                self.dictionary = NLPDictionary(
-                    char_maxlen=self.mcl, word_maxlen=self.mwl, pad_output=True)
+                self.dictionary = NLPDictionary()
 
             # Build the training set if necessary
             self.num_train_examples = self.build_dataset(train=True, force_rebuild=force_rebuild, nohashcheck=nohashcheck)
@@ -86,27 +87,22 @@ class Squad():
             log_message('Building dataset ({})...'.format('Train' if train else 'Valid'))
             tf_record_writer = tf.python_io.TFRecordWriter(
                 DATA_STORE.create_key(record_root, 'data.tfrecords',force=force_rebuild))
-            for idx, article in enumerate(json_data):
-                if idx % 1 == 0:
-                    log_message('[{}/{}] Documents Parsed ({} examples, {} errors)'.format(
-                        idx, len(json_data), num_documents, num_errors))
+            for article in tqdm.tqdm(json_data):
                 for paragraph_json in article['paragraphs']:
 
                     # Compute the context embedding
-                    context_tokens = self.dictionary.tokenizer.parse(
-                        paragraph_json['context'].strip().replace('\n', ''))
-                    context_dense, context_len = self.dictionary.dense_parse_tokens(
-                        context_tokens)
+                    context_tokens = self.dictionary.tokenizer.parse(paragraph_json['context'].strip().replace('\n', ''))
+                    context_dense, context_len = self.dictionary.dense_parse_tokens(context_tokens, word_padding=self.mwl, char_padding=self.mcl)
 
                     # Compute the QA embeddings
                     for question_answer in paragraph_json['qas']:
                         question_dense, question_len = self.dictionary.dense_parse(
-                            question_answer['question'].strip().replace('\n', ''))
+                            question_answer['question'].strip().replace('\n', ''), word_padding=self.mql, char_padding=self.mcl)
 
                         # For each answer
                         for answer in question_answer['answers']:
                             answer_dense, answer_len = self.dictionary.dense_parse(
-                                answer['text'])
+                                answer['text'], word_padding=self.mql, char_padding=self.mcl)
 
                             # Character span start/end
                             span_start = answer['answer_start']

@@ -4,6 +4,7 @@ Data download and parsing for the squad dataset
 
 import json
 import pickle
+import tqdm
 from typing import Optional, List
 
 import numpy as np
@@ -44,6 +45,7 @@ class NLQA():
 
             self.mwl = 766
             self.mcl = 37
+            self.mql = 766
 
         elif self.version == '0.2':
             # Download the training data
@@ -51,12 +53,15 @@ class NLQA():
                 url='https://newslens.berkeley.edu/QA_dataset0.2.json', key='newslens/json_0.2')
             self.mwl = 595
             self.mcl = 16
+            self.mql = 766
+
         elif self.version == '0.3':
             # Download the training data
             self.json_key = maybe_download_and_store_single_file(
                 url='https://newslens.berkeley.edu/QA_dataset0.3.json', key='newslens/json_0.3')
             self.mwl = 600
             self.mcl = 16
+            self.mql = 20
         else:
             raise ValueError("Invalid version for NLQA dataset")
 
@@ -69,12 +74,11 @@ class NLQA():
             with open(DATA_STORE[self.stem + 'dictionary_{}'.format(self.version)], 'rb') as pkl_file:
                 self.dictionary = pickle.load(pkl_file)
         else:
-            self.dictionary = NLPDictionary(tokenizer='space',
-                                            char_maxlen=self.mcl, word_maxlen=self.mwl, pad_output=True)
+            self.dictionary = NLPDictionary(tokenizer='space')
 
         # If the tf-records don't exist, build them
         if force_rebuild or not DATA_STORE.is_valid(self.stem + 'tfrecord/train/data_{}'.format(self.version)) or not DATA_STORE.is_valid(self.stem + 'tfrecord/val/data_{}'.format(self.version)):
-            log_message('Building data...')
+            log_message('Building dataset...')
 
             # Create the tf-record writer
             train_record_writer = tf.python_io.TFRecordWriter(
@@ -83,15 +87,12 @@ class NLQA():
                 DATA_STORE.create_key(self.stem + 'tfrecord/val/data_{}'.format(self.version), 'data.tfrecords', force=force_rebuild))
 
             # Parse the data into tf-records
-            for index, record in enumerate(self.json):
-                if index % 100 == 0:
-                    log_message('Finished {}/{}'.format(index, len(self.json)))
-
+            for record in tqdm.tqdm(self.json):
+        
                 # Handle start and stop tokens on the answer
                 if self.add_stop_tokens:
                     if self.mask:
-                        answer_text = record['masked_answer'].strip(
-                        ) + ' <STOP>'
+                        answer_text = record['masked_answer'].strip() + ' <STOP>'
                     else:
                         answer_text = record['real_answer'].strip() + ' <STOP>'
                 else:
@@ -103,26 +104,24 @@ class NLQA():
                 if self.add_start_tokens:
                     answer_text = '<START> ' + answer_text
                 if not self.add_stop_tokens:
-                    question_answer_dense, qa_len = self.dictionary.dense_parse(record['question'].strip() + ' ' + answer_text.strip() + '<STOP>')
+                    question_answer_dense, qa_len = self.dictionary.dense_parse(record['question'].strip() + ' ' + answer_text.strip() + '<STOP>', word_padding=self.mwl, char_padding=self.mcl)
                 else:
-                    question_answer_dense, qa_len = self.dictionary.dense_parse(record['question'].strip() + ' ' + answer_text.strip())
+                    question_answer_dense, qa_len = self.dictionary.dense_parse(record['question'].strip() + ' ' + answer_text.strip(), word_padding=self.mwl, char_padding=self.mcl)
 
                 if self.mask:
                     tokens = record['masked_document'].split(' ')
-                    context_dense, context_len = self.dictionary.dense_parse(
-                        record['masked_document'])
+                    context_dense, context_len = self.dictionary.dense_parse(record['masked_document'], word_padding=self.mwl, char_padding=self.mcl)
                     label = record['masked_answer'].split(' ')
                 else:
                     tokens = record['unmasked_document'].split(' ')
-                    context_dense, context_len = self.dictionary.dense_parse(
-                        record['unmasked_document'])
+                    context_dense, context_len = self.dictionary.dense_parse(record['unmasked_document'], word_padding=self.mwl, char_padding=self.mcl)
                     label = record['real_answer'].split(' ')
 
-                answer_dense, answer_len = self.dictionary.dense_parse(answer_text)
+                answer_dense, answer_len = self.dictionary.dense_parse(answer_text, word_padding=self.mql, char_padding=self.mcl)
 
-                question_dense, question_len = self.dictionary.dense_parse(
-                    record['question'])
+                question_dense, question_len = self.dictionary.dense_parse(record['question'], word_padding=self.mql, char_padding=self.mcl)
 
+                # Here's a bit of logic to parse out the tokens properly
                 potential_starts = [x for x in range(len(tokens)) if tokens[x] == label[0]]
                 label_index_start: List[int] = []
                 label_index_end: List[int] = []
