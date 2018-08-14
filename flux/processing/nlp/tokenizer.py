@@ -47,9 +47,19 @@ class PunktTokenizer(Tokenizer):
     """Simple NLTK-based tokenizer
     """
 
-    def __init__(self, ) -> None:
+    def __init__(self, remove_stopwords=False) -> None:
         if not NLTK_IMPORTED:
             raise NotImplementedError("NLTK Required to use the Punkt Tokenizer")
 
+        self.remove_stopwords = remove_stopwords
+
+        if self.remove_stopwords:
+            from nltk.corpus import stopwords
+            self.stop_words = set(stopwords.words('english'))
+
     def parse(self, input_string: str) -> List[str]:
-        return nltk.word_tokenize(input_string)
+        tokenized = nltk.word_tokenize(input_string)
+        if not self.remove_stopwords:
+            return tokenized
+        else:
+            return [w for w in tokenized if tokenized not in self.stop_words]
