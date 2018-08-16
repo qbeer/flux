@@ -198,6 +198,8 @@ class DataStore():
                         return False
                 else:
                     return True
+
+        # Where is the trigger for this error (Karen)?
         except FileNotFoundError as ex:
             log_warning('Key ({}) doesn\'t exist/has moved :O'.format(key))
             return False
