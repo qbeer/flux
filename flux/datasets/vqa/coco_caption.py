@@ -3,10 +3,13 @@ Wrapper for MSCOCO Dataset
 
 """
 
-from flux.backend.data import maybe_download_and_store_zip
+from flux.backend.data import maybe_download_and_store_zip, write_csv_file
 from flux.backend.globals import DATA_STORE
 import os
 import json
+import numpy as np
+from typing import Dict, List
+from PIL import Image
 
 class CocoCaption:
     """
@@ -25,19 +28,30 @@ class CocoCaption:
 
 
 
-    def __init__(self, validation_only, sample_size):
+    def __init__(self, validation_only:bool):
 
-        # Metadata
+        # Training Data
+        self.questions_train:List = None
+        self.images_train:List = None
+        self.annotations_train:List = None
 
-        self.sample_size = sample_size
-        
+        self._index:np.ndarray = None
+        self._question_index:Dict = None
+        self._answers_index:Dict = None
+        self.questions_key:List = None
+        self.is_training:bool = False
+
+        self._annotations: List = None
+        self._questions: List = None
+
         # Download Dataset.  
         self.annotations_val = maybe_download_and_store_zip(
                 url=CocoCaption.URLS["annotations"]["Validate"], root_key='vqa/annotations-val')
         self.questions_val = maybe_download_and_store_zip(
                 url=CocoCaption.URLS["questions"]["Validate"], root_key='vqa/questions-val')
         self.images_val = maybe_download_and_store_zip(
-                url=CocoCaption.URLS["images"]["Validate"], root_key='vqa/images-val')    
+                url=CocoCaption.URLS["images"]["Validate"], root_key='vqa/images-val')
+
         if not validation_only:
             self.annotations_train = maybe_download_and_store_zip(
                     url=CocoCaption.URLS["annotations"]["Train"], root_key='vqa/annotations-train')
@@ -46,98 +60,148 @@ class CocoCaption:
             self.images_train = maybe_download_and_store_zip(
                     url=CocoCaption.URLS["images"]["Train"], root_key='vqa/images-train')  
 
-    def load_questions(self, is_training):
+    
+    def load_questions(self, is_training:bool) -> List:
+        # Read questions file, outputs a list of dictionaries
+        if self._questions is not None:
+            return self._questions
         questions_file = self.read_file_from_db(is_training, self.questions_train, self.questions_val)
-        question_list = self.load_json(questions_file)["questions"]
+        with open(questions_file) as j:
+            question_dict = json.load(j)
+        question_list = question_dict["questions"]
+
+        # Outputs keys for each dictionary in question_list
+        self.questions_key = list(question_dict.keys())
+        self._questions = question_list
         return question_list
 
-    def read_file_from_db(self, is_training, train_key, val_key):
+    def get_questions_key(self, is_training:bool) -> List:
+        if self.questions_key is None:
+            return self.load_questions(is_training)
+        return self.questions_key
+
+    def read_file_from_db(self, is_training:bool, train_key:List, val_key:List) -> str:
         if is_training:
             if train_key is None:
                 raise Exception("Initialized with validation only.  Training data not downloaded.")
-            return DATA_STORE[train_key]
+            return DATA_STORE.get_file(train_key[0])["fpath"]
         
-        return DATA_STORE[val_key]
+        return DATA_STORE.get_file(val_key[0])["fpath"]
 
-    def load_annotations(self, is_training):
+    def load_annotations(self, is_training:bool) -> List:
+        # Read questions file, outputs a list of dictionaries
+        if self._annotations is not None:
+            return self._annotations
         annotation_file = self.read_file_from_db(is_training, self.annotations_train, self.annotations_val)
-        ann_file = self.load_json(annotation_file)
+        with open(annotation_file) as j:
+            ann_file = json.load(j)
         ann = ann_file["annotations"] # for our case, there are 443757 of them
+
+        self._annotations = ann
         return ann
 
-    # def answers_from_image(self, ids):
-    #     return [a["answers"]for a in self.annotations if a["image_id"] == ids]
+    def process_annotations(self, raw_annotation:List, only_yes:bool=True) -> Dict:
+        # Create index on answers by question_id
+        processed_annotations = {}
+        for d in raw_annotation:
+            q_id = d["question_id"]
+            ans = [answer["answer_id"] for answer in d["answers"] if not only_yes or answer["answer_confidence"] == "yes"]
+            processed_annotations[q_id] = ans
+        return processed_annotations
 
-    # def image_from_file(self, fname, prefix_exists=True):
-    #     """
+    def build_index(self, is_training:bool, index_img_unique:bool=False) -> np.ndarray:
+        filename = "train_im_qa_index.csv" if is_training else "val_im_qa_index.csv"
+        csv_path = write_csv_file("vqa/im_qa_index", filename, "query for image, qa, and index")
+        return self._bulid_index(is_training, csv_path, index_img_unique)
 
-    #     """
-    #     if not prefix_exists:
-    #         fname = os.path.join(BASE_DIR, fname)
-    #     img = imread(fname)
-    #     return img
+    def _bulid_index(self, is_training:bool, index_path:str, index_img_unique:bool=False) -> np.ndarray:
+        # Build an index of [im_id, question_id, answer_id]
+        if self._index is not None and is_training == self.is_training:
+            return self._index
+        if os.path.exists(index_path):
+            self.is_training = is_training
+            index_raw_data = self.read_csv(index_path)
+            if index_img_unique:
+                # TODO: unqiue image for all (q,a) pairs
+                self.index = np.array([])
+            else:
+                self.index = index_raw_data
+            return self.index
+        else:
+            self.is_training = is_training
+            annotations = self.process_annotations(self.load_annotations(is_training))
+            questions = self.load_questions(is_training)
+            index = []
+            for q in questions:
+                q_id = q["question_id"]
+                im_id = q["image_id"]
+                for ans in annotations[q_id]:
+                    index.append([im_id, q_id, ans])
+            self.index = np.array(index, dtype=np.int64)
+            self.write_csv(index_path, self.index)
+            return self.index
 
-    def load_json(self, json_file):
-        with open(json_file) as j:
-            s = json.load(j)
-        return s
+    @property
+    def question_index(self) -> Dict:
+        # See _build_questions_index
+        return self._build_questions_index()
 
-    # def questions_from_image(self, img_id):
-    #     questions = []
-    #     return [q['question'] for q in self.q_list if q["image_id"] == img_id]
+    def _build_questions_index(self) -> Dict:
+        # Create index between question_id: question
+        if self._question_index is not None:
+            return self._question_index
+        questions = self.load_questions(self.is_training)
+        self._question_index = {q["question_id"]:q["question"] for q in questions}
+        return self._question_index
 
-    # def load_question_batch(self, question_ids):
+    def answer_index(self, only_yes:bool) -> Dict:
+        return self._build_answers_index(only_yes)
 
-    #     q_ids = {q['question_id']:i for i, q in enumerate(self.q_list)}
-    #     return [self.q_list[q_ids[q]]["question"] for q in q_ids]
 
-    # def load_image_batch(self, img_ids):
-    #     imgs = []
-    #     for i in img_ids:
-    #         id_string = "%012d" % i
-    #         image_file_name = "data/train2014/" + img_name_prefix + id_string + ".jpg"
-    #         output = self.image_from_file(image_file_name)
-    #         imgs.append(output)
-    #     return imgs
-    # def load_batch_vqa(self):
-    #     print("Loading annotations...")
-    #     annotations = self.annotations[:self.batch_size]
-    #     image_ids = []
-    #     question_ids = []
-    #     answers = []
-    #     print("Parsing annotations...")
-    #     for i in range(self.batch_size):
-    #         img_id = annotations[i]['image_id']
-    #         q_id = annotations[i]['question_id']
-    #         image_ids.append(img_id)
-    #         question_ids.append(q_id)
-    #         answers.append(annotations[i]['answers'])
-    #     print("Load images...")
-    #     images = self.load_image_batch(image_ids)
-    #     print("Load questions...")
-    #     questions = self.load_question_batch(question_ids)
-    #     return images, questions, answers
-    # def load_imgs_batch(self, is_training):
-    #     img_folder = os.path.join(BASE_DIR, "data/train2014/*.jpg")
-    #     files = glob.glob(img_folder)
-    #     questions = []
-    #     images = []
-    #     answers = []
-    #     for name in files[:self.batch_size]:
-    #         ids = int(name.split(".")[0].split("_")[2])
-    #         img = self.image_from_file(name)
-    #         qs = self.questions_from_image(ids)
-    #         ans = self.answers_from_image(ids)
-    #         answers.append(ans)
-    #         questions.append(qs)
-    #         images.append(img)
+    def _build_answers_index(self, only_yes:bool=True) -> Dict:
+        if self._answers_index is not None:
+            return self._answers_index
+        self._answers_index = {}
+        annotations = self.load_annotations(self.is_training)
+        for a in annotations:
+            for choice in a["answers"]:
+                if not only_yes or choice["answer_confidence"] == "yes":
+                    self._answers_index[(a["question_id"], choice["answer_id"])] = choice["answer"]
+        return self._answers_index  
 
-    #     return images, questions, answers
+        
+    def read_csv(self, csv_path: str) -> np.ndarray:
+        return np.loadtxt(csv_path, dtype=np.int)
+    
+    def write_csv(self, csv_path: str, data: np.ndarray) -> None:
+        assert len(data.shape) == 2
+        assert data.shape[1] == 3
 
-    # def load_imgs_stream(self):
-    #     img_folder = os.path.join(BASE_DIR, "data/train2014/*.jpg")
-    #     files = glob.glob(img_folder)
-    #     for name in files:
-    #         ids = int(name.split(".")[0].split("_")[2])
-    #         img = self.image_from_file(name)
-    #         yield (ids, img)
+        np.savetxt(csv_path, data, fmt="%d")
+
+    # def train_data_stream(self):
+    #     if self.images_train is None:
+    #         raise Exception("Download train_data_first by setting validation_only to False")
+        
+    #     if not self.is_training:
+    #         raise Exception("Build index first with build_index(is_training=True)"
+        
+        
+    #     return
+
+    def val_data_stream(self):
+        if self.images_val is None:
+            raise Exception("Download val_data first by setting validation_only to True")
+        
+        for img_id, q_id, a_id in self.index:
+            img_key = "vqa/images-val/val2014/COCO_val2014_%012d" % img_id
+            img_file = DATA_STORE.get_file(img_key)
+            img = self.image_from_file(img_file["fpath"])
+            q = self.question_index[q_id]
+            #TODO: Fix this hardcode
+            a = self.answer_index(True)[(q_id, a_id)]
+            yield (img, q, a)
+
+    def image_from_file(self, fname:str) -> np.ndarray:
+        img = Image.open(fname)
+        return np.array(img)
