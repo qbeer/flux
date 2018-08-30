@@ -13,6 +13,7 @@ from flux.util.system import mkdir_p
 
 tqdm.monitor_interval = 0
 
+MOCK_BROWSER_HEADER = [('User-agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.0.7) Gecko/2009021910 Firefox/3.0.7')]
 
 class TqdmUpTo(tqdm):
     """Provides `update_to(n)` which uses `tqdm.update(delta_n)`."""
@@ -49,6 +50,10 @@ def maybe_download(file_name:str, source_url:str, work_directory:str, postproces
         log_message('Downloading {} from {}, please wait...'.format(
             file_name, source_url))
         with TqdmUpTo(unit='B', unit_scale=True, miniters=1) as t:
+            # Create a mock browser 
+            opener = urllib.request.build_opener()
+            opener.addheaders = MOCK_BROWSER_HEADER
+            urllib.request.install_opener(opener)
             filepath, _ = urllib.request.urlretrieve(source_url, filepath, t.update_to)
         stat_info = os.stat(filepath)
         log_message('Successfully downloaded {} ({} bytes).'.format(
@@ -57,6 +62,9 @@ def maybe_download(file_name:str, source_url:str, work_directory:str, postproces
             filepath = postprocess(filepath)
     return filepath
 
+
+
+    
 
 def maybe_download_text(url:str, charset: str='utf-8') -> str:
     """Get URL contents as a string
