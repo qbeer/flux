@@ -74,7 +74,7 @@ class NLQA():
             with open(DATA_STORE[self.stem + 'dictionary_{}'.format(self.version)], 'rb') as pkl_file:
                 self.dictionary = pickle.load(pkl_file)
         else:
-            self.dictionary = NLPDictionary(tokenizer='space')
+            self.dictionary = NLPDictionary(tokenizer='space', dtype=np.int32)
 
         # If the tf-records don't exist, build them
         if force_rebuild or not DATA_STORE.is_valid(self.stem + 'tfrecord/train/data_{}'.format(self.version)) or not DATA_STORE.is_valid(self.stem + 'tfrecord/val/data_{}'.format(self.version)):
@@ -143,17 +143,17 @@ class NLQA():
                     # Built the dataset/tf-records
                     feature_dict = {}
                     feature_dict['context_word_embedding'] = tf.train.Feature(
-                        int64_list=tf.train.Int64List(value=context_dense[0].flatten()))
+                        int64_list=tf.train.Int64List(value=np.ravel(context_dense[0])))
                     feature_dict['context_char_embedding'] = tf.train.Feature(
-                        int64_list=tf.train.Int64List(value=context_dense[1].flatten()))
+                        int64_list=tf.train.Int64List(value=np.ravel(context_dense[1])))
                     feature_dict['question_word_embedding'] = tf.train.Feature(
-                        int64_list=tf.train.Int64List(value=question_dense[0].flatten()))
+                        int64_list=tf.train.Int64List(value=np.ravel(question_dense[0])))
                     feature_dict['question_char_embedding'] = tf.train.Feature(
-                        int64_list=tf.train.Int64List(value=question_dense[1].flatten()))
+                        int64_list=tf.train.Int64List(value=np.ravel(question_dense[1])))
                     feature_dict['answer_word_embedding'] = tf.train.Feature(
-                        int64_list=tf.train.Int64List(value=answer_dense[0].flatten()))
+                        int64_list=tf.train.Int64List(value=np.ravel(answer_dense[0])))
                     feature_dict['question_answer_word_embedding'] = tf.train.Feature(
-                        int64_list=tf.train.Int64List(value=question_answer_dense[0].flatten()))
+                        int64_list=tf.train.Int64List(value=np.ravel(question_answer_dense[0])))
                     feature_dict['word_maxlen'] = tf.train.Feature(
                         int64_list=tf.train.Int64List(value=[self.mwl]))
                     feature_dict['char_maxlen'] = tf.train.Feature(
@@ -201,7 +201,7 @@ class NLQA():
             1 for _ in tf.python_io.tf_record_iterator(DATA_STORE[self.stem + 'tfrecord/train/data_{}'.format(self.version)]))
 
         self.word_vocab_size = len(self.dictionary.word_dictionary)
-        self.char_vocab_size = len(self.dictionary.char_dictioanary)
+        self.char_vocab_size = len(self.dictionary.char_dictionary)
 
         self._dev_db = None
         self._train_db = None
