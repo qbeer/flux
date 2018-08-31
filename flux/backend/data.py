@@ -64,7 +64,7 @@ def maybe_download_and_store_tar(url: str, root_key: str, description: str=None)
     # needs_redownload = False
     # Traverse the key dictionary, and check the integrity of each of the files
     old_keys = []
-    if not (DATA_STORE.is_valid(root_key) and  validate_subkeys(root_key, old_keys)):
+    if DATA_STORE.is_valid(root_key) and  validate_subkeys(root_key, old_keys):
         return old_keys
 
     # This is where the hard work happens
