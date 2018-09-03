@@ -52,12 +52,12 @@ class Squad():
 
             # Build the training set if necessary
             self.num_train_examples = self.build_dataset(train=True, force_rebuild=force_rebuild, nohashcheck=nohashcheck)
-            if self.num_train_examples is None:
+            if self.num_train_examples is None or self.num_train_examples == 0:
                 self.num_train_examples = sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['squad/tfrecord/train']))
 
             # Build the validation set if necessary
             self.num_val_examples = self.build_dataset(train=False, force_rebuild=force_rebuild, nohashcheck=nohashcheck)
-            if self.num_val_examples is None:
+            if self.num_val_examples is None or self.num_val_examples == 0:
                 self.num_val_examples = sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['squad/tfrecord/dev']))
 
             self.train_fpath = DATA_STORE['squad/tfrecord/train']
@@ -69,7 +69,7 @@ class Squad():
                 DATA_STORE.update_hash('squad/dictionary')
 
             self.word_vocab_size = len(self.dictionary.word_dictionary)
-            self.char_vocab_size = len(self.dictionary.char_dictioanary)
+            self.char_vocab_size = len(self.dictionary.char_dictionary)
 
             self._val_db = None
             self._train_db = None
@@ -186,10 +186,10 @@ class Squad():
             serialized_example,
             features={'context_word_embedding': tf.FixedLenFeature([self.mwl], tf.int64),
                       'context_char_embedding': tf.FixedLenFeature([self.mwl, self.mcl], tf.int64),
-                      'question_word_embedding': tf.FixedLenFeature([self.mwl], tf.int64),
-                      'question_char_embedding': tf.FixedLenFeature([self.mwl, self.mcl], tf.int64),
-                      'answer_word_embedding': tf.FixedLenFeature([self.mwl], tf.int64),
-                      'answer_char_embedding': tf.FixedLenFeature([self.mwl, self.mcl], tf.int64),
+                      'question_word_embedding': tf.FixedLenFeature([self.mql], tf.int64),
+                      'question_char_embedding': tf.FixedLenFeature([self.mql, self.mcl], tf.int64),
+                      'answer_word_embedding': tf.FixedLenFeature([self.mql], tf.int64),
+                      'answer_char_embedding': tf.FixedLenFeature([self.mql, self.mcl], tf.int64),
                       'word_maxlen': tf.FixedLenFeature([], tf.int64),
                       'char_maxlen': tf.FixedLenFeature([], tf.int64),
                       'span_start': tf.FixedLenFeature([], tf.int64),
