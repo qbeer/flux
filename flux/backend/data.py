@@ -28,6 +28,18 @@ def maybe_download_and_store_single_file(url: str, key: str, description: str=No
     return key
 
 def validate_subkeys(root_key, old_keys=[]):
+    """Validates the sub-keys in a root key
+    
+    Arguments:
+        root_key {[type]} -- [description]
+    
+    Keyword Arguments:
+        old_keys {list} -- [description] (default: {[]})
+    
+    Returns:
+        [type] -- [description]
+    """
+
     for key in DATA_STORE.db.keys():
         if key.startswith(root_key) and key != root_key:
             old_keys.append(key)
@@ -64,7 +76,7 @@ def maybe_download_and_store_tar(url: str, root_key: str, description: str=None)
     # needs_redownload = False
     # Traverse the key dictionary, and check the integrity of each of the files
     old_keys = []
-    if not (DATA_STORE.is_valid(root_key) and  validate_subkeys(root_key, old_keys)):
+    if DATA_STORE.is_valid(root_key) and validate_subkeys(root_key, old_keys):
         return old_keys
 
     # This is where the hard work happens
