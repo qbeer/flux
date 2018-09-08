@@ -10,24 +10,24 @@ from flux.util.download import maybe_download
 from flux.util.system import untar, unzip, mkdir_p
 
 
-def maybe_download_and_store_zip(url: str, root_key: str, description: str=None) -> str:
+def maybe_download_and_store_zip(url: str, root_key: str, description: str=None, **kwargs) -> str:
     old_keys = []
     if DATA_STORE.is_valid(root_key) and validate_subkeys(root_key, old_keys):
         return old_keys
         # Ensure one layer file structure for zip file? TODO (Karen)
             
-    data_path = maybe_download(file_name=url.split("/")[-1], source_url=url, work_directory=DATA_STORE.working_directory, postprocess=unzip)
+    data_path = maybe_download(file_name=url.split("/")[-1], source_url=url, work_directory=DATA_STORE.working_directory, postprocess=unzip, **kwargs)
     keys = register_to_datastore(data_path, root_key, description)
     return [os.path.join(root_key, k) for k in keys]
 
-def maybe_download_and_store_single_file(url: str, key: str, description: str=None, postprocess=None) -> str:
+def maybe_download_and_store_single_file(url: str, key: str, description: str=None, postprocess=None, **kwargs) -> str:
     if not DATA_STORE.is_valid(key):
         # This is where the hard work happens
         # First, we have to download the file into the working directory
         if postprocess is None:
             data_path = maybe_download(url.split('/')[-1], url, DATA_STORE.working_directory)
         else:
-            data_path = maybe_download(url.split('/')[-1], url, DATA_STORE.working_directory, postprocess=postprocess)
+            data_path = maybe_download(url.split('/')[-1], url, DATA_STORE.working_directory, postprocess=postprocess, **kwargs)
         DATA_STORE.add_file(key, data_path, description, force=True)
     return key
 
@@ -75,7 +75,7 @@ def register_to_datastore(data_path, root_key, description):
     DATA_STORE.create_key(root_key, 'root.key', force=True)
     return new_keys
 
-def maybe_download_and_store_tar(url: str, root_key: str, description: str=None) -> List[str]:
+def maybe_download_and_store_tar(url: str, root_key: str, description: str=None, **kwargs) -> List[str]:
     # Validate the keys in the directory
     # needs_redownload = False
     # Traverse the key dictionary, and check the integrity of each of the files
@@ -85,7 +85,7 @@ def maybe_download_and_store_tar(url: str, root_key: str, description: str=None)
 
     # This is where the hard work happens
     # First, we have to download the file into the working directory
-    data_path = maybe_download(url.split('/')[-1], url, DATA_STORE.working_directory, postprocess=untar)
+    data_path = maybe_download(url.split('/')[-1], url, DATA_STORE.working_directory, postprocess=untar, **kwargs)
 
     # The data path gives us the root key
     return register_to_datastore(data_path, root_key, description)
