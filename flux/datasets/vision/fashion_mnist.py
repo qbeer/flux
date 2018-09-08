@@ -76,14 +76,14 @@ def build_dataset(image_key: str, label_key: str, one_hot: bool=False):
     return (img_array, label_array)
 
 
-class MNIST():
+class FashionMNIST():
     def __init__(self, one_hot: bool=False, force_rebuild: bool=False, nohashcheck: bool=True) -> None:
 
         # Download the MNIST data
-        self.train_images_key = maybe_download_and_store_single_file(url='http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz', key='mnist/train_images')
-        self.train_labels_key = maybe_download_and_store_single_file(url='http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz', key='mnist/train_labels')
-        self.test_images_key = maybe_download_and_store_single_file(url='http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz', key='mnist/test_images')
-        self.test_labels_key = maybe_download_and_store_single_file(url='http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz', key='mnist/test_labels')
+        self.train_images_key = maybe_download_and_store_single_file(url='http://fashion-mnist.s3-website.eu-central-1.amazonaws.com/train-images-idx3-ubyte.gz', key='fashion_mnist/train_images')
+        self.train_labels_key = maybe_download_and_store_single_file(url='http://fashion-mnist.s3-website.eu-central-1.amazonaws.com/train-labels-idx1-ubyte.gz', key='fashion_mnist/train_labels')
+        self.test_images_key = maybe_download_and_store_single_file(url='http://fashion-mnist.s3-website.eu-central-1.amazonaws.com/t10k-images-idx3-ubyte.gz', key='fashion_mnist/test_images')
+        self.test_labels_key = maybe_download_and_store_single_file(url='http://fashion-mnist.s3-website.eu-central-1.amazonaws.com/t10k-labels-idx1-ubyte.gz', key='fashion_mnist/test_labels')
 
         # Build the dataset
         check_image_file_header(DATA_STORE[self.train_images_key])
@@ -92,7 +92,7 @@ class MNIST():
         check_labels_file_header(DATA_STORE[self.test_labels_key])
 
         # Decode the images
-        if not DATA_STORE.is_valid('mnist/pickle') or force_rebuild:
+        if not DATA_STORE.is_valid('fashion_mnist/pickle') or force_rebuild:
             log_message('Extracting Training Images...')
             self.train_images, self.train_labels = build_dataset(self.train_images_key, self.train_labels_key, one_hot)
             log_message('Extracting Test Images...')
@@ -105,11 +105,11 @@ class MNIST():
                 'test_lb': self.test_labels,
             }
 
-            with open(DATA_STORE.create_key('mnist/pickle','mnist.pkl', force=True), 'wb') as pkl_file:
+            with open(DATA_STORE.create_key('fashion_mnist/pickle','mnist.pkl', force=True), 'wb') as pkl_file:
                 pickle.dump(pickle_dict, pkl_file)
-            DATA_STORE.update_hash('mnist/pickle')
+            DATA_STORE.update_hash('fashion_mnist/pickle')
         else:
-            with open(DATA_STORE['mnist/pickle'], 'rb') as pkl_file:
+            with open(DATA_STORE['fashion_mnist/pickle'], 'rb') as pkl_file:
                 pickle_dict = pickle.load(pkl_file)
                 self.train_images = pickle_dict['train_im']
                 self.test_images = pickle_dict['test_im']
