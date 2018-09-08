@@ -51,7 +51,7 @@ class COCOCaptions(object):
 
         # TODO (davidchan@berkeley.edu) Need to make sure that this works - there could be download issues, but it's hard to say
         self.train_json_key = 'coco2014/data/train/annotations/v2_mscoco_train2014_annotations'
-        self.train_json_key = 'coco2014/data/val/annotations/v2_mscoco_val2014_annotations'
+        self.val_json_key = 'coco2014/data/val/annotations/v2_mscoco_val2014_annotations'
 
         # Now that we have the data, load and parse the JSON files
         need_rebuild_train = force_rebuild
