@@ -40,8 +40,8 @@ class VQA(object):
         self.val_a_json_key = maybe_download_and_store_zip('http://visualqa.org/data/mscoco/vqa/v2_Annotations_Val_mscoco.zip', 'coco2014/data/val/annotations')[0]
         self.train_q_json_key = maybe_download_and_store_zip('http://visualqa.org/data/mscoco/vqa/v2_Questions_Train_mscoco.zip', 'coco2014/data/train/questions')[0]
         self.val_q_json_key = maybe_download_and_store_zip('http://visualqa.org/data/mscoco/vqa/v2_Questions_Val_mscoco.zip', 'coco2014/data/val/questions')[0]
-        maybe_download_and_store_zip('http://images.cocodataset.org/zips/train2014.zip', 'coco2014/data/train/images')
-        maybe_download_and_store_zip('http://images.cocodataset.org/zips/val2014.zip', 'coco2014/data/val/images')
+        maybe_download_and_store_zip('http://images.cocodataset.org/zips/train2014.zip', 'coco2014/data/train/images', use_subkeys=False)
+        maybe_download_and_store_zip('http://images.cocodataset.org/zips/val2014.zip', 'coco2014/data/val/images', use_subkeys=False)
 
         # Now that we have the data, load and parse the JSON files
         need_rebuild_train = force_rebuild
