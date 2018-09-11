@@ -1,5 +1,5 @@
 """
-Utils for parsing the MSCOCO dataset
+Utils for parsing the MSCOCO/VQA dataset
 """
 
 import json
@@ -30,48 +30,44 @@ def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=value))
 
 
-class COCOCaptions(object):
-    """ MS COCO Caption Dataset
-
-    For now, we host the data locally on one of the CannyLab machines - meaning that we're
-    technically going around the rules. Thus - I've added password protection. Make sure that 
-    you have the password for the data when downloading.
+class VQA(object):
+    """ VQA Caption Dataset Downloader
     """
     def __init__(self, num_parallel_reads: int=1, force_rebuild: bool=False) -> None:
 
-        # Query for the data password
-        if not DATA_STORE.is_valid('coco2014/data/annotations') or force_rebuild:
-            maybe_download_and_store_zip('http://images.cocodataset.org/annotations/annotations_trainval2014.zip', 'coco2014/data/annotations', use_subkeys=False)
-        if not DATA_STORE.is_valid('coco2014/data/train/images') or force_rebuild:
-            maybe_download_and_store_zip('http://images.cocodataset.org/zips/train2014.zip', 'coco2014/data/train/images', use_subkeys=False)
-        if not DATA_STORE.is_valid('coco2014/data/val/images') or force_rebuild:
-            maybe_download_and_store_zip('http://images.cocodataset.org/zips/val2014.zip', 'coco2014/data/val/images', use_subkeys=False)
-
-        # TODO (davidchan@berkeley.edu) Need to make sure that this works - there could be download issues, but it's hard to say
-        self.train_json_key = 'coco2014/data/annotations'
-        self.val_json_key = 'coco2014/data/annotations'
+        # Get all of the necessary data
+        self.train_a_json_key = maybe_download_and_store_zip('http://visualqa.org/data/mscoco/vqa/v2_Annotations_Train_mscoco.zip', 'coco2014/data/train/annotations')[0]
+        self.val_a_json_key = maybe_download_and_store_zip('http://visualqa.org/data/mscoco/vqa/v2_Annotations_Val_mscoco.zip', 'coco2014/data/val/annotations')[0]
+        self.train_q_json_key = maybe_download_and_store_zip('http://visualqa.org/data/mscoco/vqa/v2_Questions_Train_mscoco.zip', 'coco2014/data/train/questions')[0]
+        self.val_q_json_key = maybe_download_and_store_zip('http://visualqa.org/data/mscoco/vqa/v2_Questions_Val_mscoco.zip', 'coco2014/data/val/questions')[0]
+        maybe_download_and_store_zip('http://images.cocodataset.org/zips/train2014.zip', 'coco2014/data/train/images')
+        maybe_download_and_store_zip('http://images.cocodataset.org/zips/val2014.zip', 'coco2014/data/val/images')
 
         # Now that we have the data, load and parse the JSON files
         need_rebuild_train = force_rebuild
         if not DATA_STORE.is_valid('coco2014/tfrecord/train') or need_rebuild_train:
             need_rebuild_train = True
-            with open(os.path.join(DATA_STORE[self.train_json_key], 'annotations/captions_train2014.json'), 'r') as annotation_file:
-                self.train_json = json.loads(annotation_file.read())
+            with open(DATA_STORE[self.train_a_json_key], 'r') as annotation_file:
+                self.train_a_json = json.loads(annotation_file.read())
+            with open(DATA_STORE[self.train_q_json_key], 'r') as annotation_file:
+                self.train_q_json = json.loads(annotation_file.read())
         
         need_rebuild_val = force_rebuild
         if not DATA_STORE.is_valid('coco2014/tfrecord/val') or need_rebuild_val:
             need_rebuild_val = True
-            with open(os.path.join(DATA_STORE[self.val_json_key], 'annotations/captions_val2014.json'), 'r') as annotation_file:
-                self.val_json = json.loads(annotation_file.read())
+            with open(DATA_STORE[self.val_a_json_key], 'r') as annotation_file:
+                self.val_a_json = json.loads(annotation_file.read())
+            with open(DATA_STORE[self.val_q_json_key], 'r') as annotation_file:
+                self.val_q_json = json.loads(annotation_file.read())
 
         # Load the vocab files
-        if not DATA_STORE.is_valid('coco2014/captions/dictionary') or force_rebuild:
+        if not DATA_STORE.is_valid('vqa/dictionary') or force_rebuild:
             self.dictionary = NLPDictionary()
             need_rebuild_train = True
             need_rebuild_val = True
         else:
             self.dictionary = NLPDictionary()
-            self.dictionary.load(DATA_STORE['coco2014/captions/dictionary'])
+            self.dictionary.load(DATA_STORE['vqa/dictionary'])
 
         # Setup some default options for the dataset
         self.max_word_length = 50
@@ -86,17 +82,17 @@ class COCOCaptions(object):
         if need_rebuild_val:
             self._build_dataset('val')
 
-        self.train_fpath = DATA_STORE['coco2014/tfrecord/train']
-        self.val_fpath = DATA_STORE['coco2014/tfrecord/val']
+        self.train_fpath = DATA_STORE['vqa/tfrecord/train']
+        self.val_fpath = DATA_STORE['vqa/tfrecord/val']
 
         # Compute the size of the datasets
-        self.num_train_examples = sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['coco2014/tfrecord/train']))
-        self.num_val_examples = sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['coco2014/tfrecord/val']))
+        self.num_train_examples = sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['vqa/tfrecord/train']))
+        self.num_val_examples = sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['vqa/tfrecord/val']))
 
         # Save the vocab
-        with open(DATA_STORE.create_key('coco2014/captions/dictionary', 'dict.pkl', force=True), 'wb') as pkl_file:
+        with open(DATA_STORE.create_key('vqa/dictionary', 'dict.pkl', force=True), 'wb') as pkl_file:
             pickle.dump(self.dictionary, pkl_file)
-            DATA_STORE.update_hash('coco2014/captions/dictionary')
+            DATA_STORE.update_hash('vqa/dictionary')
 
         self.word_vocab_size = len(self.dictionary.word_dictionary)
         self.char_vocab_size = len(self.dictionary.char_dictionary)
@@ -108,12 +104,14 @@ class COCOCaptions(object):
 
         # Open the TFRecordWriter
         if dataset == 'train':
-            record_root = 'coco2014/tfrecord/train'
-            json = self.train_json
+            record_root = 'vqa/tfrecord/train'
+            json_a = self.train_a_json
+            json_q = self.train_q_json
             root_fpath = DATA_STORE['coco2014/data/train/images']
         else:
             record_root = 'coco2014/tfrecord/val'
-            json = self.val_json
+            json_a = self.val_a_json
+            json_q = self.val_q_json
             root_fpath = DATA_STORE['coco2014/data/val/images']
 
         # Construct the record reader
@@ -122,7 +120,7 @@ class COCOCaptions(object):
         # Loop over the data and parse
         errors = 0
         log_message('Building {} dataset...'.format(dataset))
-        for entry in tqdm.tqdm(json['annotations']):
+        for idx, entry in tqdm.tqdm(json_q['questions']):
             # Load the image
             image = load_image(build_fpath_from_image_id(root_fpath, entry['image_id'], dataset))
             if image is None:
@@ -131,14 +129,20 @@ class COCOCaptions(object):
                 continue
 
             # Parse the caption
-            caption_raw = entry['caption']
-            caption_dense, caption_len = self.dictionary.dense_parse(caption_raw, word_padding=self.max_word_length, char_padding=self.max_char_length)
+            assert entry['question_id'] == json_a['annotations'][idx]['question_id']
+            question_raw = entry['question']
+            question_dense, question_len = self.dictionary.dense_parse(question_raw, word_padding=self.max_word_length, char_padding=self.max_char_length)
+            answer_raw = json_a['annotations'][idx]['multiple_choice_answer']
+            answer_dense, answer_len = self.dictionary.dense_parse(answer_raw, word_padding=self.max_word_length, char_padding=self.max_char_length)
 
             # Add the image data 
             feature = {
-                'caption_word_embedding': _int64_feature(np.ravel(caption_dense[0]).astype(np.int64)),
-                'caption_char_embedding': _int64_feature(np.ravel(caption_dense[1]).astype(np.int64)),
-                'caption_length': _int64_feature([caption_len]),
+                'question_word_embedding': _int64_feature(np.ravel(question_dense[0]).astype(np.int64)),
+                'question_char_embedding': _int64_feature(np.ravel(question_dense[1]).astype(np.int64)),
+                'question_length': _int64_feature([question_len]),
+                'answer_word_embedding': _int64_feature(np.ravel(answer_dense[0]).astype(np.int64)),
+                'answer_char_embedding': _int64_feature(np.ravel(answer_dense[1]).astype(np.int64)),
+                'answer_length': _int64_feature([answer_len]),
                 'image_shape': _int64_feature(image.shape),
                 'image': _bytes_feature(tf.compat.as_bytes(image.tostring())),
             }
@@ -155,9 +159,12 @@ class COCOCaptions(object):
         # Parse the DB out from the tf_record file
         features = tf.parse_single_example(
             serialized_example,
-            features={'caption_word_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
-                      'caption_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
-                      'caption_length': tf.FixedLenFeature([1], tf.int64),
+            features={'question_word_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
+                      'question_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
+                      'question_length': tf.FixedLenFeature([1], tf.int64),
+                      'answer_word_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
+                      'answer_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
+                      'answer_length': tf.FixedLenFeature([1], tf.int64),
                       'image_shape': tf.FixedLenFeature([3], tf.int64),
                       'image': tf.FixedLenFeature([], tf.string),
                       })
@@ -166,7 +173,13 @@ class COCOCaptions(object):
         image = tf.reshape(tf.decode_raw(features['image'], tf.uint8), image_shape)
 
         # This tuple is the longest, most terrible thing ever
-        return (features['caption_word_embedding'], features['caption_char_embedding'], features['caption_length'], image)
+        return (features['question_word_embedding'],
+                features['question_char_embedding'],
+                features['question_length'],
+                features['answer_word_embedding'],
+                features['answer_char_embedding'],
+                features['answer_length'],
+                image)
 
     @property
     def train_db(self):
