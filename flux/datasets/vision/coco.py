@@ -15,12 +15,11 @@ from flux.backend.data import maybe_download_and_store_zip
 from flux.backend.globals import DATA_STORE
 from flux.processing.nlp.dictionary import NLPDictionary
 from flux.processing.vision.util import load_image
-from flux.util.logging import log_message
+from flux.util.logging import log_message, log_warning
 
 
-def build_fpath_from_image_id(root_filepath: str, image_id: int) -> str:
-    return os.path.join(root_filepath, 'COCO_train2014_{0:012d}.jpg'.format(image_id))
-
+def build_fpath_from_image_id(root_filepath: str, image_id: int, dataset: str) -> str:
+    return os.path.join(root_filepath,'{}2014'.format(dataset),'COCO_{0}2014_{1:012d}.jpg'.format(dataset,image_id))
 
 def _bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
@@ -40,30 +39,28 @@ class COCOCaptions(object):
     def __init__(self, num_parallel_reads: int=1, force_rebuild: bool=False) -> None:
 
         # Query for the data password
-        if not DATA_STORE.is_valid('coco2014/data/train/annotations') or force_rebuild:
-            maybe_download_and_store_zip('http://visualqa.org/data/mscoco/vqa/v2_Annotations_Train_mscoco.zip', 'coco2014/data/train/annotations')[0]
-        if not DATA_STORE.is_valid('coco2014/data/val/annotations') or force_rebuild:
-            maybe_download_and_store_zip('http://visualqa.org/data/mscoco/vqa/v2_Annotations_Val_mscoco.zip', 'coco2014/data/val/annotations')[0]
+        if not DATA_STORE.is_valid('coco2014/data/annotations') or force_rebuild:
+            maybe_download_and_store_zip('http://images.cocodataset.org/annotations/annotations_trainval2014.zip', 'coco2014/data/annotations', use_subkeys=False)
         if not DATA_STORE.is_valid('coco2014/data/train/images') or force_rebuild:
-            maybe_download_and_store_zip('http://images.cocodataset.org/zips/train2014.zip', 'coco2014/data/train/images')
+            maybe_download_and_store_zip('http://images.cocodataset.org/zips/train2014.zip', 'coco2014/data/train/images', use_subkeys=False)
         if not DATA_STORE.is_valid('coco2014/data/val/images') or force_rebuild:
-            maybe_download_and_store_zip('http://images.cocodataset.org/zips/val2014.zip', 'coco2014/data/val/images')
+            maybe_download_and_store_zip('http://images.cocodataset.org/zips/val2014.zip', 'coco2014/data/val/images', use_subkeys=False)
 
         # TODO (davidchan@berkeley.edu) Need to make sure that this works - there could be download issues, but it's hard to say
-        self.train_json_key = 'coco2014/data/train/annotations/v2_mscoco_train2014_annotations'
-        self.val_json_key = 'coco2014/data/val/annotations/v2_mscoco_val2014_annotations'
+        self.train_json_key = 'coco2014/data/annotations'
+        self.val_json_key = 'coco2014/data/annotations'
 
         # Now that we have the data, load and parse the JSON files
         need_rebuild_train = force_rebuild
         if not DATA_STORE.is_valid('coco2014/tfrecord/train') or need_rebuild_train:
             need_rebuild_train = True
-            with open(DATA_STORE[self.train_json_key], 'r') as annotation_file:
+            with open(os.path.join(DATA_STORE[self.train_json_key],'annotations/captions_train2014.json'), 'r') as annotation_file:
                 self.train_json = json.loads(annotation_file.read())
         
         need_rebuild_val = force_rebuild
         if not DATA_STORE.is_valid('coco2014/tfrecord/val') or need_rebuild_val:
             need_rebuild_val = True
-            with open(DATA_STORE[self.val_json_key], 'r') as annotation_file:
+            with open(os.path.join(DATA_STORE[self.val_json_key],'annotations/captions_val2014.json'), 'r') as annotation_file:
                 self.val_json = json.loads(annotation_file.read())
 
         # Load the vocab files
@@ -122,10 +119,15 @@ class COCOCaptions(object):
         tf_record_writer = tf.python_io.TFRecordWriter(DATA_STORE.create_key(record_root, 'data.tfrecords', force=True))
 
         # Loop over the data and parse
+        errors = 0
         log_message('Building {} dataset...'.format(dataset))
         for entry in tqdm.tqdm(json['annotations']):
             # Load the image
-            image = load_image(build_fpath_from_image_id(root_fpath, entry['image_id']))
+            image = load_image(build_fpath_from_image_id(root_fpath, entry['image_id'], dataset))
+            if image is None:
+                errors += 1
+                log_warning('Error loading image: {}. {} Errors so far.'.format(build_fpath_from_image_id(root_fpath, entry['image_id']), errors))
+                continue
 
             # Parse the caption
             caption_raw = entry['caption']
@@ -160,7 +162,7 @@ class COCOCaptions(object):
                       })
 
         image_shape = features['image_shape']
-        image = tf.reshape(tf.decode_raw(features['image'], tf.uint8), [image_shape[0], image_shape[1], image_shape[2]])
+        image = tf.reshape(tf.decode_raw(features['image'], tf.uint8), image_shape)
 
         # This tuple is the longest, most terrible thing ever
         return (features['caption_word_embedding'], features['caption_char_embedding'], features['caption_length'], image)

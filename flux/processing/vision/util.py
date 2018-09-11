@@ -17,7 +17,13 @@ try:
             fpath {str} -- The file path of the image to load
         """
         image = cv2.imread(fpath)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        try:
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        except:
+            try:
+                image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+            except:
+                return None
         return image
 
     def resize_image(image: np.ndarray, shape: Tuple[int, int]) -> np.ndarray:

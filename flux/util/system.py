@@ -51,9 +51,10 @@ def unzip(path: str) -> str:
     if (path.endswith('.zip')):
         log_message('Decompressing: {}'.format(path))
         zip_ref = zipfile.ZipFile(path, 'r')
-        zip_ref.extractall(path='/'.join(path.split('/')[:-1]))
+        output_fpath = os.path.join('/'.join(path.split('/')[:-1]),path.split('/')[-1][:-4])
+        zip_ref.extractall(path=output_fpath)
         zip_ref.close()
-        return '/'.join(path.split('/')[:-1])
+        return output_fpath
     else:
         raise ValueError('Not a .zip file: {}'.format(path))
 
@@ -67,10 +68,9 @@ def untar(path: str) -> str:
     if (path.endswith("tar.gz")):
         log_message('Decompressing: {}'.format(path))
         tar = tarfile.open(path)
-        tar.extractall(path='/'.join(path.split('/')[:-1]))
+        output_fpath = os.path.join('/'.join(path.split('/')[:-1]),path.split('/')[-1][:-7])
+        tar.extractall(path=output_fpath)
         tar.close()
-        return '/'.join(path.split('/')[:-1])
+        return output_fpath
     else:
         raise ValueError('Not a .tar.gz file: {}'.format(path))
-
-
