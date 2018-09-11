@@ -43,8 +43,6 @@ class VQA(object):
         maybe_download_and_store_zip('http://images.cocodataset.org/zips/train2014.zip', 'coco2014/data/train/images')
         maybe_download_and_store_zip('http://images.cocodataset.org/zips/val2014.zip', 'coco2014/data/val/images')
 
-        print( self.train_a_json_key,  self.train_q_json_key,  self.val_a_json_key,  self.val_q_json_key)
-
         # Now that we have the data, load and parse the JSON files
         need_rebuild_train = force_rebuild
         if not DATA_STORE.is_valid('vqa/tfrecord/train') or need_rebuild_train:
