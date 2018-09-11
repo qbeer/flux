@@ -45,7 +45,7 @@ class VQA(object):
 
         # Now that we have the data, load and parse the JSON files
         need_rebuild_train = force_rebuild
-        if not DATA_STORE.is_valid('coco2014/tfrecord/train') or need_rebuild_train:
+        if not DATA_STORE.is_valid('vqa/tfrecord/train') or need_rebuild_train:
             need_rebuild_train = True
             with open(DATA_STORE[self.train_a_json_key], 'r') as annotation_file:
                 self.train_a_json = json.loads(annotation_file.read())
@@ -53,7 +53,7 @@ class VQA(object):
                 self.train_q_json = json.loads(annotation_file.read())
         
         need_rebuild_val = force_rebuild
-        if not DATA_STORE.is_valid('coco2014/tfrecord/val') or need_rebuild_val:
+        if not DATA_STORE.is_valid('vqa/tfrecord/val') or need_rebuild_val:
             need_rebuild_val = True
             with open(DATA_STORE[self.val_a_json_key], 'r') as annotation_file:
                 self.val_a_json = json.loads(annotation_file.read())
