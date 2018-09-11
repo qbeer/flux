@@ -43,6 +43,8 @@ class VQA(object):
         maybe_download_and_store_zip('http://images.cocodataset.org/zips/train2014.zip', 'coco2014/data/train/images')
         maybe_download_and_store_zip('http://images.cocodataset.org/zips/val2014.zip', 'coco2014/data/val/images')
 
+        print( self.train_a_json_key,  self.train_q_json_key,  self.val_a_json_key,  self.val_q_json_key)
+
         # Now that we have the data, load and parse the JSON files
         need_rebuild_train = force_rebuild
         if not DATA_STORE.is_valid('vqa/tfrecord/train') or need_rebuild_train:
@@ -120,7 +122,7 @@ class VQA(object):
         # Loop over the data and parse
         errors = 0
         log_message('Building {} dataset...'.format(dataset))
-        for idx, entry in tqdm.tqdm(json_q['questions']):
+        for idx, entry in tqdm.tqdm(enumerate(json_q['questions'])):
             # Load the image
             image = load_image(build_fpath_from_image_id(root_fpath, entry['image_id'], dataset))
             if image is None:
