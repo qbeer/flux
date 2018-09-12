@@ -109,7 +109,7 @@ class VQA(object):
             json_q = self.train_q_json
             root_fpath = DATA_STORE['coco2014/data/train/images']
         else:
-            record_root = 'coco2014/tfrecord/val'
+            record_root = 'vqa/tfrecord/val'
             json_a = self.val_a_json
             json_q = self.val_q_json
             root_fpath = DATA_STORE['coco2014/data/val/images']
