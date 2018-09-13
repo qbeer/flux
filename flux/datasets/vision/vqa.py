@@ -33,7 +33,7 @@ def _int64_feature(value):
 class VQA(object):
     """ VQA Caption Dataset Downloader
     """
-    def __init__(self, num_parallel_reads: int=1, force_rebuild: bool=False) -> None:
+    def __init__(self, num_parallel_reads: int=1, force_rebuild: bool=False, ignore_hashes=False) -> None:
 
         # Get all of the necessary data
         self.train_a_json_key = maybe_download_and_store_zip('http://visualqa.org/data/mscoco/vqa/v2_Annotations_Train_mscoco.zip', 'coco2014/data/train/annotations')[0]
@@ -45,7 +45,7 @@ class VQA(object):
 
         # Now that we have the data, load and parse the JSON files
         need_rebuild_train = force_rebuild
-        if not DATA_STORE.is_valid('vqa/tfrecord/train') or need_rebuild_train:
+        if not ignore_hashes and (not DATA_STORE.is_valid('vqa/tfrecord/train') or need_rebuild_train):
             need_rebuild_train = True
             with open(DATA_STORE[self.train_a_json_key], 'r') as annotation_file:
                 self.train_a_json = json.loads(annotation_file.read())
@@ -53,7 +53,7 @@ class VQA(object):
                 self.train_q_json = json.loads(annotation_file.read())
         
         need_rebuild_val = force_rebuild
-        if not DATA_STORE.is_valid('vqa/tfrecord/val') or need_rebuild_val:
+        if not ignore_hashes and (not DATA_STORE.is_valid('vqa/tfrecord/val') or need_rebuild_val):
             need_rebuild_val = True
             with open(DATA_STORE[self.val_a_json_key], 'r') as annotation_file:
                 self.val_a_json = json.loads(annotation_file.read())
@@ -61,13 +61,13 @@ class VQA(object):
                 self.val_q_json = json.loads(annotation_file.read())
 
         # Load the vocab files
-        if not DATA_STORE.is_valid('vqa/dictionary') or force_rebuild:
+        if not ignore_hashes and (not DATA_STORE.is_valid('vqa/dictionary') or force_rebuild):
             self.dictionary = NLPDictionary()
             need_rebuild_train = True
             need_rebuild_val = True
         else:
-            self.dictionary = NLPDictionary()
-            self.dictionary.load(DATA_STORE['vqa/dictionary'])
+            with open(DATA_STORE['vqa/dictionary'],'rb') as dict_file:
+                self.dictionary = pickle.load(dict_file)
 
         # Setup some default options for the dataset
         self.max_word_length = 50
@@ -86,8 +86,8 @@ class VQA(object):
         self.val_fpath = DATA_STORE['vqa/tfrecord/val']
 
         # Compute the size of the datasets
-        self.num_train_examples = sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['vqa/tfrecord/train']))
-        self.num_val_examples = sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['vqa/tfrecord/val']))
+        self.num_train_examples = 443757 #sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['vqa/tfrecord/train']))
+        self.num_val_examples = 214654 #sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['vqa/tfrecord/val']))
 
         # Save the vocab
         with open(DATA_STORE.create_key('vqa/dictionary', 'dict.pkl', force=True), 'wb') as pkl_file:
