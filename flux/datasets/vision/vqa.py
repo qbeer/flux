@@ -11,6 +11,8 @@ import tensorflow as tf
 import tqdm
 from tabulate import tabulate
 
+from typing import Sequence
+
 from flux.backend.data import maybe_download_and_store_zip
 from flux.backend.globals import DATA_STORE
 from flux.processing.nlp.dictionary import NLPDictionary
@@ -33,7 +35,9 @@ def _int64_feature(value):
 class VQA(object):
     """ VQA Caption Dataset Downloader
     """
-    def __init__(self, num_parallel_reads: int=1, force_rebuild: bool=False, ignore_hashes=False) -> None:
+    def __init__(self, num_parallel_reads: int=1, force_rebuild: bool=False, ignore_hashes=False, image_shape: Sequence[int] = [224,224]) -> None:
+
+        self.image_resize_shape = image_shape
 
         # Get all of the necessary data
         self.train_a_json_key = maybe_download_and_store_zip('http://visualqa.org/data/mscoco/vqa/v2_Annotations_Train_mscoco.zip', 'coco2014/data/train/annotations')[0]
@@ -171,6 +175,9 @@ class VQA(object):
 
         image_shape = features['image_shape']
         image = tf.reshape(tf.decode_raw(features['image'], tf.uint8), image_shape)
+        image = tf.cast(image, tf.float32) / 255.0
+        image = tf.image.resize_images(image, self.image_resize_shape)
+        image.set_shape([self.image_resize_shape[0], self.image_resize_shape[1], 3])
 
         # This tuple is the longest, most terrible thing ever
         return (features['question_word_embedding'],
