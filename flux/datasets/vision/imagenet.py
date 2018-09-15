@@ -42,6 +42,8 @@ class Imagenet(object):
 
         image = tf.cast(image, tf.float32) / 255.0
         image = tf.image.resize_images(image, self.image_resize_shape)
+        image.set_shape((self.image_resize_shape[0], self.image_resize_shape[1], 3))
+
 
         # This tuple is the longest, most terrible thing ever
         return (image, features['image/class/label'])
