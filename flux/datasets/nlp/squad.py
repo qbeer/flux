@@ -77,7 +77,7 @@ class Squad():
             raise NotImplementedError(
                 "Only version 2.0 is currently supported")
 
-    def build_dataset(self,train,force_rebuild=False, nohashcheck=False):
+    def build_dataset(self, train, force_rebuild=False, nohashcheck=False):
         record_root = 'squad/tfrecord/train' if train else 'squad/tfrecord/dev'
         json_data = self.train_json['data'] if train else self.dev_json['data']
         num_errors = 0
