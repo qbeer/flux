@@ -11,7 +11,7 @@ import tensorflow as tf
 import tqdm
 from tabulate import tabulate
 
-from typing import Sequence
+from typing import Sequence, Dict
 
 from flux.backend.data import maybe_download_and_store_zip
 from flux.backend.globals import DATA_STORE
@@ -47,9 +47,14 @@ class VQA(object):
         maybe_download_and_store_zip('http://images.cocodataset.org/zips/train2014.zip', 'coco2014/data/train/images', use_subkeys=False)
         maybe_download_and_store_zip('http://images.cocodataset.org/zips/val2014.zip', 'coco2014/data/val/images', use_subkeys=False)
 
+        # Compute the size of the datasets
+        self.num_train_examples = 443757 #sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['vqa/tfrecord/train']))
+        self.num_val_examples = 214654 #sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['vqa/tfrecord/val']))
+
         # Now that we have the data, load and parse the JSON files
         need_rebuild_train = force_rebuild
-        if not ignore_hashes and (not DATA_STORE.is_valid('vqa/tfrecord/train') or need_rebuild_train):
+        if not ignore_hashes and (need_rebuild_train or not DATA_STORE.is_valid('vqa/tfrecord/train')):
+            log_message('Need to rebuild training data. Loading JSON annotations.')
             need_rebuild_train = True
             with open(DATA_STORE[self.train_a_json_key], 'r') as annotation_file:
                 self.train_a_json = json.loads(annotation_file.read())
@@ -57,7 +62,8 @@ class VQA(object):
                 self.train_q_json = json.loads(annotation_file.read())
         
         need_rebuild_val = force_rebuild
-        if not ignore_hashes and (not DATA_STORE.is_valid('vqa/tfrecord/val') or need_rebuild_val):
+        if not ignore_hashes and (need_rebuild_val or not DATA_STORE.is_valid('vqa/tfrecord/val')):
+            log_message('Need to rebuild validation data. Loading JSON annotations.')
             need_rebuild_val = True
             with open(DATA_STORE[self.val_a_json_key], 'r') as annotation_file:
                 self.val_a_json = json.loads(annotation_file.read())
@@ -65,13 +71,21 @@ class VQA(object):
                 self.val_q_json = json.loads(annotation_file.read())
 
         # Load the vocab files
-        if not ignore_hashes and (not DATA_STORE.is_valid('vqa/dictionary') or force_rebuild):
+        if not ignore_hashes and (force_rebuild or not DATA_STORE.is_valid('vqa/dictionary')):
             self.dictionary = NLPDictionary()
             need_rebuild_train = True
             need_rebuild_val = True
         else:
             with open(DATA_STORE['vqa/dictionary'],'rb') as dict_file:
                 self.dictionary = pickle.load(dict_file)
+
+        if not ignore_hashes and (force_rebuild or not DATA_STORE.is_valid('vqa/class_map')):
+            self.class_map: Dict[str, int] = {}
+            need_rebuild_train = True
+            need_rebuild_val = True
+        else:
+            with open(DATA_STORE['vqa/class_map'],'rb') as class_map_file:
+                self.class_map_file = pickle.load(class_map_file)
 
         # Setup some default options for the dataset
         self.max_word_length = 50
@@ -89,31 +103,32 @@ class VQA(object):
         self.train_fpath = DATA_STORE['vqa/tfrecord/train']
         self.val_fpath = DATA_STORE['vqa/tfrecord/val']
 
-        # Compute the size of the datasets
-        self.num_train_examples = 443757 #sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['vqa/tfrecord/train']))
-        self.num_val_examples = 214654 #sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['vqa/tfrecord/val']))
-
         # Save the vocab
         with open(DATA_STORE.create_key('vqa/dictionary', 'dict.pkl', force=True), 'wb') as pkl_file:
             pickle.dump(self.dictionary, pkl_file)
             DATA_STORE.update_hash('vqa/dictionary')
+        with open(DATA_STORE.create_key('vqa/class_map', 'class_map.pkl', force=True), 'wb') as pkl_file:
+            pickle.dump(self.class_map, pkl_file)
+            DATA_STORE.update_hash('vqa/class_map')
 
         self.word_vocab_size = len(self.dictionary.word_dictionary)
         self.char_vocab_size = len(self.dictionary.char_dictionary)
 
     def _build_dataset(self, dataset: str) -> None:
-        
+
         # Open the TFRecordWriter
         if dataset == 'train':
             record_root = 'vqa/tfrecord/train'
             json_a = self.train_a_json
             json_q = self.train_q_json
             root_fpath = DATA_STORE['coco2014/data/train/images']
+            example_numbers = self.num_train_examples
         else:
             record_root = 'vqa/tfrecord/val'
             json_a = self.val_a_json
             json_q = self.val_q_json
             root_fpath = DATA_STORE['coco2014/data/val/images']
+            example_numbers = self.num_val_examples
 
         # Construct the record reader
         tf_record_writer = tf.python_io.TFRecordWriter(DATA_STORE.create_key(record_root, 'data.tfrecords', force=True))
@@ -121,7 +136,7 @@ class VQA(object):
         # Loop over the data and parse
         errors = 0
         log_message('Building {} dataset...'.format(dataset))
-        for idx, entry in tqdm.tqdm(enumerate(json_q['questions'])):
+        for idx, entry in tqdm.tqdm(enumerate(json_q['questions']), total=example_numbers):
             # Load the image
             image = load_image(build_fpath_from_image_id(root_fpath, entry['image_id'], dataset))
             image = encode_jpeg(image)
@@ -137,6 +152,12 @@ class VQA(object):
             answer_raw = json_a['annotations'][idx]['multiple_choice_answer']
             answer_dense, answer_len = self.dictionary.dense_parse(answer_raw, word_padding=self.max_word_length, char_padding=self.max_char_length)
 
+            # Add the class mapping
+            if answer_raw not in self.class_map:
+                self.class_map[answer_raw] = len(self.class_map)
+            answer_class = self.class_map[answer_raw]
+                
+
             # Add the image data 
             feature = {
                 'question_word_embedding': _int64_feature(np.ravel(question_dense[0]).astype(np.int64)),
@@ -145,8 +166,8 @@ class VQA(object):
                 'answer_word_embedding': _int64_feature(np.ravel(answer_dense[0]).astype(np.int64)),
                 'answer_char_embedding': _int64_feature(np.ravel(answer_dense[1]).astype(np.int64)),
                 'answer_length': _int64_feature([answer_len]),
-                'image_shape': _int64_feature(image.shape),
-                'image': _bytes_feature(tf.compat.as_bytes(image.tostring())),
+                'answer_class': _int64_feature([answer_class]),
+                'image': _bytes_feature(tf.compat.as_bytes(image)),
             }
 
             # Write the TF-Record
@@ -167,6 +188,7 @@ class VQA(object):
                       'answer_word_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
                       'answer_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
                       'answer_length': tf.FixedLenFeature([1], tf.int64),
+                      'answer_class': tf.FixedLenFeature([1], tf.int64),
                       'image': tf.FixedLenFeature([], tf.string),
                       })
 
@@ -180,7 +202,8 @@ class VQA(object):
                 features['answer_word_embedding'],
                 features['answer_char_embedding'],
                 features['answer_length'],
-                image)
+                image,
+                features['answer_class'])
 
     @property
     def train_db(self):

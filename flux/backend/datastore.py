@@ -190,7 +190,7 @@ class DataStore():
 
     def create_key(self, key: str, fname: str, description: str=None, force: bool=False) -> str:
         if key in self.db:
-            if self.is_valid(key) and not force:
+            if not force and self.is_valid(key):
                 raise KeyExistsError('Can\'t create key: {}! It already exists!'.format(key))
             else:
                 self.remove_file(key)
