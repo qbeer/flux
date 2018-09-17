@@ -16,7 +16,7 @@ from typing import Sequence
 from flux.backend.data import maybe_download_and_store_zip
 from flux.backend.globals import DATA_STORE
 from flux.processing.nlp.dictionary import NLPDictionary
-from flux.processing.vision.util import load_image
+from flux.processing.vision.util import load_image, encode_jpeg
 from flux.util.logging import log_message, log_warning
 
 
@@ -102,10 +102,7 @@ class VQA(object):
         self.char_vocab_size = len(self.dictionary.char_dictionary)
 
     def _build_dataset(self, dataset: str) -> None:
-
-        if dataset not in ['train', 'val']:
-            raise ValueError("Must be building either training or validation dataset")
-
+        
         # Open the TFRecordWriter
         if dataset == 'train':
             record_root = 'vqa/tfrecord/train'
@@ -127,6 +124,7 @@ class VQA(object):
         for idx, entry in tqdm.tqdm(enumerate(json_q['questions'])):
             # Load the image
             image = load_image(build_fpath_from_image_id(root_fpath, entry['image_id'], dataset))
+            image = encode_jpeg(image)
             if image is None:
                 errors += 1
                 log_warning('Error loading image: {}. {} Errors so far.'.format(build_fpath_from_image_id(root_fpath, entry['image_id'], dataset), errors))
@@ -169,15 +167,11 @@ class VQA(object):
                       'answer_word_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
                       'answer_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
                       'answer_length': tf.FixedLenFeature([1], tf.int64),
-                      'image_shape': tf.FixedLenFeature([3], tf.int64),
                       'image': tf.FixedLenFeature([], tf.string),
                       })
 
-        image_shape = features['image_shape']
-        image = tf.reshape(tf.decode_raw(features['image'], tf.uint8), image_shape)
+        image = tf.image.decode_jpeg(features['image'], tf.uint8)
         image = tf.cast(image, tf.float32) / 255.0
-        image = tf.image.resize_images(image, self.image_resize_shape)
-        image.set_shape([self.image_resize_shape[0], self.image_resize_shape[1], 3])
 
         # This tuple is the longest, most terrible thing ever
         return (features['question_word_embedding'],

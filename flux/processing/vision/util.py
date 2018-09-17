@@ -26,6 +26,9 @@ try:
                 return None
         return image
 
+    def encode_jpeg(image: np.ndarray) -> str:
+        return cv2.imencode('.jpg', image)[1].tostring()
+
     def resize_image(image: np.ndarray, shape: Tuple[int, int]) -> np.ndarray:
         image = cv2.resize(image, (shape[0], shape[1]), interpolation=cv2.INTER_CUBIC)
         return image
