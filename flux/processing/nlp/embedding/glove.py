@@ -43,7 +43,7 @@ class GloveEmbedding():
                 # Read the data keys from the file
                 log_message('Loading vectors...')
                 self.encoder: Dict[str, np.ndarray] = {}
-                with open(os.path.join(DATA_STORE.working_directory, 'glove.6B.{}d.txt'.format(self.dimension)), 'r') as glove_file:
+                with open(os.path.join(DATA_STORE.working_directory, 'glove.6B/glove.6B.{}d.txt'.format(self.dimension)), 'r') as glove_file:
                     for line in glove_file:
                         tokens = line.split()
                         self.encoder[tokens[0]] = np.array(
@@ -72,7 +72,7 @@ class GloveEmbedding():
                 # Read the data keys from the file
                 log_message('Loading vectors...')
                 self.encoder: Dict[str, np.ndarray] = {}
-                with open(os.path.join(DATA_STORE.working_directory, 'glove.42B.{}d.txt'.format(self.dimension)), 'r') as glove_file:
+                with open(os.path.join(DATA_STORE.working_directory, 'glove.42B.300d/glove.42B.{}d.txt'.format(self.dimension)), 'r') as glove_file:
                     for line in glove_file:
                         tokens = line.split()
                         self.encoder[tokens[0]] = np.array(
@@ -101,7 +101,7 @@ class GloveEmbedding():
                 # Read the data keys from the file
                 log_message('Loading vectors...')
                 self.encoder: Dict[str, np.ndarray] = {}
-                with open(os.path.join(DATA_STORE.working_directory, 'glove.840B.{}d.txt'.format(self.dimension)), 'r') as glove_file:
+                with open(os.path.join(DATA_STORE.working_directory, 'glove.840B.300d/glove.840B.{}d.txt'.format(self.dimension)), 'r') as glove_file:
                     for line in glove_file:
                         tokens = line.split()
                         self.encoder[tokens[0]] = np.array(
@@ -130,7 +130,7 @@ class GloveEmbedding():
                 # Read the data keys from the file
                 log_message('Loading vectors...')
                 self.encoder: Dict[str, np.ndarray] = {}
-                with open(os.path.join(DATA_STORE.working_directory, 'glove.twitter.27B.{}d.txt'.format(self.dimension)), 'r') as glove_file:
+                with open(os.path.join(DATA_STORE.working_directory, 'glove.twitter.27B/glove.twitter.27B.{}d.txt'.format(self.dimension)), 'r') as glove_file:
                     for line in glove_file:
                         tokens = line.split()
                         self.encoder[tokens[0]] = np.array(
