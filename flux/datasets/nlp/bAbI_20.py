@@ -45,7 +45,7 @@ class bAbI_20:
     ]
 
 
-    def __init__(self, num_parallel_reads=1, force_rebuild=True, nohashcheck=True, subset="en", wml=8, cml=10):
+    def __init__(self, num_parallel_reads=1, sample_only=True, force_rebuild=True, nohashcheck=True, subset="en", wml=8, cml=10):
         self.task_root = "tasks_1-20_v1-2"
         self.subset = subset
         url = "http://www.thespermwhale.com/jaseweston/babi/tasks_1-20_v1-2.tar.gz"
@@ -66,15 +66,23 @@ class bAbI_20:
             self.dictionary = NLPDictionary()
 
         # Build the training set if necessary
-        self.num_train_examples = self.build_dataset(train=True, force_rebuild=force_rebuild, nohashcheck=nohashcheck)
-        if self.num_train_examples is None:
-            self.num_train_examples = sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE[self.train_record_root]))
+        self.sample_num_train_examples = self.build_dataset(train=True, sample=True, force_rebuild=force_rebuild, nohashcheck=nohashcheck)
+        # if self.num_train_examples is None:
+        #     self.num_train_examples = sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE[self.train_record_root]))
 
         # Build the validation set if necessary
-        self.num_val_examples = self.build_dataset(train=False, force_rebuild=force_rebuild, nohashcheck=nohashcheck)
-        if self.num_val_examples is None:
-            self.num_val_examples = sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE[self.val_record_root]))
+        self.sample_num_val_examples = self.build_dataset(train=False, sample=True, force_rebuild=force_rebuild, nohashcheck=nohashcheck)
+        # if self.num_val_examples is None:
+        #     self.num_val_examples = sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE[self.val_record_root]))
+        # Build the training set if necessary
+        self.num_train_examples = self.build_dataset(train=True, sample=False, force_rebuild=force_rebuild, nohashcheck=nohashcheck)
+        # if self.num_train_examples is None:
+        #     self.num_train_examples = sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE[self.train_record_root]))
 
+        # Build the validation set if necessary
+        self.num_val_examples = self.build_dataset(train=False, sample=False, force_rebuild=force_rebuild, nohashcheck=nohashcheck)
+        # if self.num_val_examples is None:
+        #     self.num_val_examples = sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE[self.val_record_root]))
         #  = DATA_STORE[self.train_record_root]
         # self.dev_fpath = DATA_STORE[self.val_record_root]
 
@@ -99,8 +107,14 @@ class bAbI_20:
         with open(filename, "r") as r:
             return r.read()
 
-    def read_file_from_db(self, is_train, task_key):
-        task_path = task_key + "_train" if is_train else task_key + "_test"
+    def read_file_from_db(self, is_train, task_key, sample=True):
+        if sample and not is_train:
+            task_path = task_key + "_test"
+        else:
+            task_path = task_key + "_train" if is_train else task_key
+        
+        if not DATA_STORE.is_valid(task_path):
+            raise NameError("{0} does not exist.".format(task_path))
         return DATA_STORE.get_file(task_path)["fpath"]
 
     
@@ -122,12 +136,16 @@ class bAbI_20:
             task_path = "{0}/{1}/{2}/{3}"
             
             for task in tqdm.tqdm(bAbI_20.task_list):
-                task_tf_root = os.path.join(record_root, subset, task)
+                if not train:
+                    task_id = task.split("_")[0]
+                else:
+                    task_id = task
+                task_tf_root = os.path.join(record_root, subset, task_id)
 
                 tf_record_writer = tf.python_io.TFRecordWriter(
                 DATA_STORE.create_key(task_tf_root, record_name,force=force_rebuild))
 
-                task_path = task_path.format(self.task_root, self.task_root, subset, task)
+                task_path = task_path.format(self.task_root, self.task_root, subset, task_id)
                 data_path = self.read_file_from_db(train, task_path)
 
                 txt = self.read_txt(data_path)
@@ -243,12 +261,15 @@ class bAbI_20:
     def _to_np_array(self, t: Tuple):
         return tuple([np.array(i) for i in t])
 
-    def build_db(self, is_train, db, subset) -> Dict:
+    def build_db(self, sample, is_train, db, subset) -> Dict:
         record_root = self.train_record_root if is_train else self.val_record_root
         if db is not None:
             return db
         task_dict = {}
+        record_name = "sample.tfrecords" if sample else "data.tfrecords"
         for task in bAbI_20.task_list:
+            if not is_train:
+                task = task.split("_")[0]
             task_tf_root = os.path.join(record_root, subset, task)
 
             if not DATA_STORE.is_valid(task_tf_root):
@@ -261,22 +282,22 @@ class bAbI_20:
 
     @property
     def sample_train_db(self,) -> Dict:
-        self._sample_train_db = self.build_db(True, self._sample_train_db, self.subset)
+        self._sample_train_db = self.build_db(True, True, self._sample_train_db, self.subset)
         return self._sample_train_db
     
     @property
     def sample_val_db(self, ) -> Dict:
-        self._sample_val_db = self.build_db(False, self._sample_val_db, self.subset + "-valid")
+        self._sample_val_db = self.build_db(True, False, self._sample_val_db, self.subset + "-valid")
         return self._sample_val_db
 
     @property
     def train_db(self,) -> Dict:
-        self._train_db = self.build_db(True, self._train_db, self.subset + "-10k")
+        self._train_db = self.build_db(False, True, self._train_db, self.subset + "-10k")
         return self._train_db
 
     @property
     def val_db(self,) -> Dict:
-        self._val_db = self.build_db(False, self._val_db, self.subset + "-10k-valid")
+        self._val_db = self.build_db(False, False, self._val_db, self.subset + "-valid-10k")
         return self._val_db
 
     def _map_fn(self, serialized_example):
