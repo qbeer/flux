@@ -18,7 +18,7 @@ from flux.backend.globals import DATA_STORE
 from flux.processing.nlp.dictionary import NLPDictionary
 from flux.processing.vision.util import load_image, encode_jpeg
 from flux.util.logging import log_message, log_warning
-
+from flux.datasets.dataset import Dataset
 
 def build_fpath_from_image_id(root_filepath: str, image_id: int, dataset: str) -> str:
     return os.path.join(root_filepath, '{}2014'.format(dataset), 'COCO_{0}2014_{1:012d}.jpg'.format(dataset, image_id))
@@ -32,7 +32,7 @@ def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=value))
 
 
-class VQA(object):
+class VQA(Dataset):
     """ VQA Caption Dataset Downloader
     """
     def __init__(self, num_parallel_reads: int=1, force_rebuild: bool=False, ignore_hashes=False, image_shape: Sequence[int] = [224,224]) -> None:
@@ -93,7 +93,7 @@ class VQA(object):
         self._val_db = None
         self._train_db = None
         self.num_parallel_reads = num_parallel_reads
-        
+        self.sample_triple = None
         # Build the tfrecord dataset from the JSON
         if need_rebuild_train:
             self._build_dataset('train')
@@ -174,6 +174,7 @@ class VQA(object):
             example = tf.train.Example(features=tf.train.Features(feature=feature))
             tf_record_writer.write(example.SerializeToString())
         
+        self.sample_triple = (image, question_raw, answer_raw)
         tf_record_writer.close()
         DATA_STORE.update_hash(record_root)
 
@@ -218,6 +219,13 @@ class VQA(object):
             self._val_db = tf.data.TFRecordDataset(
                 self.val_fpath, num_parallel_reads=self.num_parallel_reads).map(self._map_fn)
         return self._val_db
+
+    @property
+    def data_format(self):
+        if self.sample_triple is not None:
+            return self.sample_triple
+        else:
+            raise NotImplementedError("Sample doesn't exist.  Dataset may not be built.")
 
     def info(self, ) -> str:
         return(tabulate([['Num Train Examples', self.num_train_examples],
