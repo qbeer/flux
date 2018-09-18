@@ -48,8 +48,9 @@ class VQA(object):
         maybe_download_and_store_zip('http://images.cocodataset.org/zips/val2014.zip', 'coco2014/data/val/images', use_subkeys=False)
 
         # Compute the size of the datasets
-        self.num_train_examples = 443757 #sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['vqa/tfrecord/train']))
-        self.num_val_examples = 214654 #sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['vqa/tfrecord/val']))
+        self.num_train_examples = 443757
+        self.num_val_examples = 214654
+        self.num_classes = 29332
 
         # Now that we have the data, load and parse the JSON files
         need_rebuild_train = force_rebuild
@@ -85,7 +86,7 @@ class VQA(object):
             need_rebuild_val = True
         else:
             with open(DATA_STORE['vqa/class_map'],'rb') as class_map_file:
-                self.class_map_file = pickle.load(class_map_file)
+                self.class_map = pickle.load(class_map_file)
 
         # Setup some default options for the dataset
         self.max_word_length = 50
@@ -156,7 +157,6 @@ class VQA(object):
             if answer_raw not in self.class_map:
                 self.class_map[answer_raw] = len(self.class_map)
             answer_class = self.class_map[answer_raw]
-                
 
             # Add the image data 
             feature = {
@@ -192,8 +192,10 @@ class VQA(object):
                       'image': tf.FixedLenFeature([], tf.string),
                       })
 
-        image = tf.image.decode_jpeg(features['image'], tf.uint8)
+        image = tf.image.decode_jpeg(features['image'], channels=3 )
         image = tf.cast(image, tf.float32) / 255.0
+        image = tf.image.resize_images(image, self.image_resize_shape)
+        image.set_shape((self.image_resize_shape[0], self.image_resize_shape[1], 3))
 
         # This tuple is the longest, most terrible thing ever
         return (features['question_word_embedding'],
