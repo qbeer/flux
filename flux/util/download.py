@@ -31,7 +31,7 @@ class TqdmUpTo(tqdm):
         self.update(b * bsize - self.n)  # will also set self.n = b * bsize
 
 
-def maybe_download(file_name:str, source_url:str, work_directory:str, postprocess=None):
+def maybe_download(file_name: str, source_url: str, work_directory: str, postprocess=None, username: str=None, password: str=None):
     """Download a file from source-url to the work directory as file_name if the
        file does not already exist
     Arguments:
@@ -51,7 +51,15 @@ def maybe_download(file_name:str, source_url:str, work_directory:str, postproces
             file_name, source_url))
         with TqdmUpTo(unit='B', unit_scale=True, miniters=1) as t:
             # Create a mock browser 
-            opener = urllib.request.build_opener()
+            if username is not None:
+                if password is None:
+                    raise ValueError('If using authentication, provide both a username and password.')
+                manager = urllib.request.HTTPPasswordMgrWithDefaultRealm()
+                manager.add_password(None, source_url, username, password)
+                auth = urllib.request.HTTPBasicAuthHandler(manager)
+                opener = urllib.request.build_opener(auth)
+            else:
+                opener = urllib.request.build_opener()
             opener.addheaders = MOCK_BROWSER_HEADER
             urllib.request.install_opener(opener)
             filepath, _ = urllib.request.urlretrieve(source_url, filepath, t.update_to)

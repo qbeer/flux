@@ -20,7 +20,7 @@ from flux.util.logging import log_message
 class NLQA():
 
     def __init__(self, version='0.3', num_parallel_reads: Optional[int]=None,
-                 force_rebuild: bool=False, mask: bool=True,
+                 force_rebuild: bool=False, mask: bool=False,
                  add_start_tokens: bool=False, add_stop_tokens: bool=False,
                  use_qam: bool=False) -> None:
 
@@ -226,13 +226,13 @@ class NLQA():
             serialized_example,
             features={'context_word_embedding': tf.FixedLenFeature([self.mwl], tf.int64),
                       'context_char_embedding': tf.FixedLenFeature([self.mwl, self.mcl], tf.int64),
-                      'question_word_embedding': tf.FixedLenFeature([self.mwl], tf.int64),
-                      'question_char_embedding': tf.FixedLenFeature([self.mwl, self.mcl], tf.int64),
+                      'question_word_embedding': tf.FixedLenFeature([self.mql], tf.int64),
+                      'question_char_embedding': tf.FixedLenFeature([self.mql, self.mcl], tf.int64),
                       'word_maxlen': tf.FixedLenFeature([], tf.int64),
                       'char_maxlen': tf.FixedLenFeature([], tf.int64),
                       'token_label_start': tf.FixedLenFeature([], tf.int64),
                       'token_label_end': tf.FixedLenFeature([], tf.int64),
-                      'answer_word_embedding': tf.FixedLenFeature([self.mwl], tf.int64),
+                      'answer_word_embedding': tf.FixedLenFeature([self.mql], tf.int64),
                       'question_answer_word_embedding': tf.FixedLenFeature([self.mwl], tf.int64),
                       'context_word_len': tf.FixedLenFeature([], tf.int64),
                       'question_word_len': tf.FixedLenFeature([], tf.int64),

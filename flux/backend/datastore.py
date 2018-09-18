@@ -87,6 +87,38 @@ class DataStore():
         db_entry = {
             'fpath': os.path.join(file_to_location, fpath.split('/')[-1]),
             'hash': md5(os.path.join(file_to_location, fpath.split('/')[-1])),
+            'folder': '0',
+            'description': description
+        }
+        self.db[key] = db_entry
+        self.flush()
+
+        return self.db[key]
+
+    def add_folder(self, key: str, folder_path: str, description: str=None, force: bool=False) -> Dict[str, Optional[str]]:
+        if key in self.db and not force:
+            # The file already exists in our data store
+            return self.db[key]
+
+        # We're adding a file to the data-store. Move it to the
+        # proper location in the store based on key
+        file_root_location = key.split('/')
+        file_to_location = os.path.join(self.root_filepath, *file_root_location)
+        print(file_to_location)
+        print(folder_path)
+
+        # If the directory doesn't exist in our local file-store create it
+        if not os.path.exists(file_to_location):
+            mkdir_p(os.path.join(self.root_filepath, *file_root_location))
+
+        # If it's not already where it needs to go, move it
+        fpath = os.path.join(self.root_filepath, *file_root_location)
+        shutil.move(folder_path, os.path.join(file_to_location, fpath))
+
+        db_entry = {
+            'fpath': os.path.join(file_to_location, fpath, folder_path.split('/')[-1]),
+            'hash': None,
+            'folder': '1',
             'description': description
         }
         self.db[key] = db_entry
@@ -158,7 +190,7 @@ class DataStore():
 
     def create_key(self, key: str, fname: str, description: str=None, force: bool=False) -> str:
         if key in self.db:
-            if self.is_valid(key) and not force:
+            if not force and self.is_valid(key):
                 raise KeyExistsError('Can\'t create key: {}! It already exists!'.format(key))
             else:
                 self.remove_file(key)
@@ -176,6 +208,7 @@ class DataStore():
         db_entry = {
             'fpath': os.path.join(file_to_location, fname),
             'hash': None,
+            'folder': '0',
             'description': description
         }
 
