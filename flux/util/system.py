@@ -6,6 +6,7 @@ import os
 import errno
 import hashlib
 import zipfile
+import zlib
 import tarfile
 from flux.util.logging import log_message
 
@@ -40,6 +41,19 @@ def md5(path: str) -> str:
         for chunk in iter(lambda: f.read(4096), b""):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
+
+def adler32(path: str) -> str:
+    """Compute the Adler-32 checksum of a file
+    Arguments:
+        path {string} -- The path to the file
+    Returns:
+        string -- the MD5 hash
+    """
+    checksum = 0
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            checksum += zlib.adler32(chunk)
+    return str(hex(checksum))
 
 
 def unzip(path: str) -> str:
