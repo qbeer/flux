@@ -9,6 +9,7 @@ import os
 import atexit
 import json
 import shutil
+import tqdm
 
 from typing import Dict, Optional
 from flux.util.system import mkdir_p, adler32
@@ -222,9 +223,15 @@ class DataStore():
             self.flush()
 
     def rehash_all(self,) -> None:
-        for key in self.db.keys():
-            if self.db[key]['hash'] is not None:
-                self.update_hash(key)
+        pop_keys = []
+        for key in tqdm.tqdm(self.db.keys()):
+            try:
+                if self.db[key]['hash'] is not None:
+                    self.update_hash(key)
+            except FileNotFoundError:
+                pop_keys.append(key)
+        for ky in pop_keys:
+            self.db.pop(ky)
 
     def is_valid(self, key: str, nohashcheck=False) -> bool:
         try:

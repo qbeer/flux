@@ -9,14 +9,15 @@ from flux.backend.globals import DATA_STORE
 from flux.util.download import maybe_download
 from flux.util.system import untar, unzip, mkdir_p
 
+
 def maybe_download_and_store_zip(url: str, root_key: str, description: str=None, use_subkeys=True, **kwargs) -> List[str]:
     old_keys: List[str] = []
     if DATA_STORE.is_valid(root_key) and validate_subkeys(root_key, old_keys):
         return old_keys
         # Ensure one layer file structure for zip file? TODO (Karen)
-    
+
     data_path = maybe_download(file_name=url.split("/")[-1], source_url=url, work_directory=DATA_STORE.working_directory, postprocess=unzip, **kwargs)
-    keys = []
+    keys: List[str] = []
     if use_subkeys:
         keys = register_to_datastore(data_path, root_key, description)
     else:
@@ -36,7 +37,8 @@ def maybe_download_and_store_single_file(url: str, key: str, description: str=No
         DATA_STORE.add_file(key, data_path, description, force=True)
     return key
 
-def validate_subkeys(root_key, old_keys=[]):
+
+def validate_subkeys(root_key, old_keys=None):
     """Validates the sub-keys in a root key
 
     Arguments:
@@ -48,6 +50,8 @@ def validate_subkeys(root_key, old_keys=[]):
     Returns:
         [type] -- [description]
     """
+    if old_keys is None:
+        old_keys: List[str] = []
 
     for key in DATA_STORE.db.keys():
         if key.startswith(root_key) and key != root_key:
@@ -96,7 +100,7 @@ def maybe_download_and_store_tar(url: str, root_key: str, description: str=None,
     data_path = maybe_download(url.split('/')[-1], url, DATA_STORE.working_directory, postprocess=untar, **kwargs)
 
     # The data path gives us the root key
-    keys = []
+    keys: List[str] = []
     if use_subkeys:
         keys = register_to_datastore(data_path, root_key, description)
     else:
