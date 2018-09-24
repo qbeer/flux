@@ -37,14 +37,6 @@ def maybe_download_and_store_single_file(url: str, key: str, description: str=No
     return key
 
 def validate_subkeys(root_key, old_keys=[]):
-    for key in DATA_STORE.db.keys():
-        if key.startswith(root_key) and key != root_key:
-            old_keys.append(key)
-            if not DATA_STORE.is_valid(key):
-                return False
-    return True
-
-def validate_subkeys(root_key, old_keys=[]):
     """Validates the sub-keys in a root key
 
     Arguments:
