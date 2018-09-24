@@ -36,10 +36,11 @@ class VQA(object):
     """ VQA Caption Dataset Downloader
     """
     def __init__(self, num_parallel_reads: int=1, force_rebuild: bool=False, ignore_hashes=False,
-                 image_shape: Sequence[int] = [224,224], read_codes=False) -> None:
+                 image_shape: Sequence[int] = [224,224], read_codes=False, code_shape: Sequence[int] = [7, 7, 2048]) -> None:
 
         self.image_resize_shape = image_shape
         self.read_codes = read_codes
+        self.code_shape = code_shape
 
         # Get all of the necessary data
         self.train_a_json_key = maybe_download_and_store_zip('http://visualqa.org/data/mscoco/vqa/v2_Annotations_Train_mscoco.zip', 'coco2014/data/train/annotations')[0]
@@ -160,7 +161,7 @@ class VQA(object):
                 self.class_map[answer_raw] = len(self.class_map)
             answer_class = self.class_map[answer_raw]
 
-            # Add the image data 
+            # Add the image data
             feature = {
                 'question_word_embedding': _int64_feature(np.ravel(question_dense[0]).astype(np.int64)),
                 'question_char_embedding': _int64_feature(np.ravel(question_dense[1]).astype(np.int64)),
@@ -175,7 +176,7 @@ class VQA(object):
             # Write the TF-Record
             example = tf.train.Example(features=tf.train.Features(feature=feature))
             tf_record_writer.write(example.SerializeToString())
-        
+
         tf_record_writer.close()
         DATA_STORE.update_hash(record_root)
 
@@ -190,7 +191,7 @@ class VQA(object):
                         'answer_length': tf.FixedLenFeature([1], tf.int64),
                         'answer_class': tf.FixedLenFeature([1], tf.int64),
                         'image': tf.FixedLenFeature([], tf.string),
-                      }
+                        }
         if self.read_codes:
             feature_dict['image_code'] = tf.FixedLenSequenceFeature([],tf.float32, allow_missing=True)
 
@@ -198,7 +199,7 @@ class VQA(object):
             serialized_example,
             features=feature_dict)
 
-        image = tf.image.decode_jpeg(features['image'], channels=3 )
+        image = tf.image.decode_jpeg(features['image'], channels=3)
         image = tf.cast(image, tf.float32) / 255.0
         image = tf.image.resize_images(image, self.image_resize_shape)
         image.set_shape((self.image_resize_shape[0], self.image_resize_shape[1], 3))
@@ -213,7 +214,8 @@ class VQA(object):
                         image,
                         features['answer_class']]
         if self.read_codes:
-            return_value.append(features['image_code'])    
+            image_codes = tf.reshape(feature_dict['image_code'], self.code_shape)
+            return_value.append(image_codes)
         return return_value
 
     @property
