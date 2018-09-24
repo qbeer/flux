@@ -35,9 +35,11 @@ def _int64_feature(value):
 class VQA(object):
     """ VQA Caption Dataset Downloader
     """
-    def __init__(self, num_parallel_reads: int=1, force_rebuild: bool=False, ignore_hashes=False, image_shape: Sequence[int] = [224,224]) -> None:
+    def __init__(self, num_parallel_reads: int=1, force_rebuild: bool=False, ignore_hashes=False,
+                 image_shape: Sequence[int] = [224,224], read_codes=False) -> None:
 
         self.image_resize_shape = image_shape
+        self.read_codes = read_codes
 
         # Get all of the necessary data
         self.train_a_json_key = maybe_download_and_store_zip('http://visualqa.org/data/mscoco/vqa/v2_Annotations_Train_mscoco.zip', 'coco2014/data/train/annotations')[0]
@@ -180,17 +182,21 @@ class VQA(object):
     def _map_fn(self, serialized_example):
 
         # Parse the DB out from the tf_record file
+        feature_dict = {'question_word_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
+                        'question_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
+                        'question_length': tf.FixedLenFeature([1], tf.int64),
+                        'answer_word_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
+                        'answer_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
+                        'answer_length': tf.FixedLenFeature([1], tf.int64),
+                        'answer_class': tf.FixedLenFeature([1], tf.int64),
+                        'image': tf.FixedLenFeature([], tf.string),
+                      }
+        if self.read_codes:
+            feature_dict['image_code'] = tf.FixedLenSequenceFeature([],tf.float32, allow_missing=True)
+
         features = tf.parse_single_example(
             serialized_example,
-            features={'question_word_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
-                      'question_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
-                      'question_length': tf.FixedLenFeature([1], tf.int64),
-                      'answer_word_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
-                      'answer_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
-                      'answer_length': tf.FixedLenFeature([1], tf.int64),
-                      'answer_class': tf.FixedLenFeature([1], tf.int64),
-                      'image': tf.FixedLenFeature([], tf.string),
-                      })
+            features=feature_dict)
 
         image = tf.image.decode_jpeg(features['image'], channels=3 )
         image = tf.cast(image, tf.float32) / 255.0
@@ -198,14 +204,17 @@ class VQA(object):
         image.set_shape((self.image_resize_shape[0], self.image_resize_shape[1], 3))
 
         # This tuple is the longest, most terrible thing ever
-        return (features['question_word_embedding'],
-                features['question_char_embedding'],
-                features['question_length'],
-                features['answer_word_embedding'],
-                features['answer_char_embedding'],
-                features['answer_length'],
-                image,
-                features['answer_class'])
+        return_value = [features['question_word_embedding'],
+                        features['question_char_embedding'],
+                        features['question_length'],
+                        features['answer_word_embedding'],
+                        features['answer_char_embedding'],
+                        features['answer_length'],
+                        image,
+                        features['answer_class']]
+        if self.read_codes:
+            return_value.append(features['image_code'])    
+        return return_value
 
     @property
     def train_db(self):
