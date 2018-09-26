@@ -3,12 +3,44 @@ Backend data manipulation routines
 """
 
 import os
-from typing import List
+from typing import List, Dict
 
 from flux.backend.globals import DATA_STORE
-from flux.util.download import maybe_download
+from flux.util.download import maybe_download, maybe_download_google_drive
 from flux.util.system import untar, unzip, mkdir_p
 
+def maybe_download_and_store_google_drive(file_pair: Dict[str, str], root_key: str, description: str=None, use_subkeys=True, **kwargs) -> List[str]:
+    old_keys: List[str] = []
+    if DATA_STORE.is_valid(root_key) and validate_subkeys(root_key, old_keys):
+        return old_keys
+
+    keys = []
+    for file_name in file_pair:
+        file_id = file_pair[file_name]
+        file_dest = os.path.join(DATA_STORE.working_directory, file_name)
+        data_path = maybe_download_google_drive(file_id, file_dest)
+        data_path = post_process(data_path)
+        if os.path.isdir(data_path):
+            if use_subkeys:
+                _keys = register_to_datastore(data_path, root_key, description)
+                keys.extend(_keys)
+            else:
+                dir_keys = os.path.join(root_key, file_name)
+                DATA_STORE.add_folder(dir_keys, data_path, force=True)
+                keys.append(dir_keys)
+        else:
+            _key = os.path.join(root_key, file_name)
+            DATA_STORE.add_file(_key, data_path, description, force=True)
+            keys.append(_key)
+
+    return [k for k in keys] + [root_key]
+
+def post_process(data_path):
+    if data_path.endswith(".zip"):
+        return unzip(data_path)
+    if data_path.endswith(".tar"):
+        return untar(data_path)
+    return data_path
 
 def maybe_download_and_store_zip(url: str, root_key: str, description: str=None, use_subkeys=True, **kwargs) -> List[str]:
     old_keys: List[str] = []
@@ -23,7 +55,7 @@ def maybe_download_and_store_zip(url: str, root_key: str, description: str=None,
     else:
         DATA_STORE.add_folder(root_key, data_path, force=True)
 
-    return [os.path.join(root_key, k) for k in keys] + [root_key]
+    return [k for k in keys] + [root_key]
 
 
 def maybe_download_and_store_single_file(url: str, key: str, description: str=None, postprocess=None, **kwargs) -> str:
