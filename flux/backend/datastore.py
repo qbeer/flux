@@ -9,9 +9,10 @@ import os
 import atexit
 import json
 import shutil
+import tqdm
 
 from typing import Dict, Optional
-from flux.util.system import mkdir_p, md5
+from flux.util.system import mkdir_p, adler32
 from flux.util.logging import log_warning
 
 
@@ -86,7 +87,7 @@ class DataStore():
 
         db_entry = {
             'fpath': os.path.join(file_to_location, fpath.split('/')[-1]),
-            'hash': md5(os.path.join(file_to_location, fpath.split('/')[-1])),
+            'hash': adler32(os.path.join(file_to_location, fpath.split('/')[-1])),
             'folder': '0',
             'description': description
         }
@@ -140,7 +141,7 @@ class DataStore():
         if key in self.db:
             # Check that the hash is OK
             if hash is not None:
-                if md5(str(self.db[key]['fpath'])) == self.db[key]['hash']:
+                if adler32(str(self.db[key]['fpath'])) == self.db[key]['hash']:
                     return self.db[key]
                 else:
                     # We have the file, but the hash isn't ok. We remove
@@ -218,14 +219,25 @@ class DataStore():
 
     def update_hash(self, key: str) -> None:
         if key in self.db:
-            self.db[key]['hash'] = str(md5(str(self.db[key]['fpath'])))
+            self.db[key]['hash'] = str(adler32(str(self.db[key]['fpath'])))
             self.flush()
+
+    def rehash_all(self,) -> None:
+        pop_keys = []
+        for key in tqdm.tqdm(self.db.keys()):
+            try:
+                if self.db[key]['hash'] is not None:
+                    self.update_hash(key)
+            except FileNotFoundError:
+                pop_keys.append(key)
+        for ky in pop_keys:
+            self.db.pop(ky)
 
     def is_valid(self, key: str, nohashcheck=False) -> bool:
         try:
             if key in self.db:
                 if not nohashcheck and self.db[key]['hash'] is not None:
-                    if str(self.db[key]['hash']) == str(md5(str(self.db[key]['fpath']))):
+                    if str(self.db[key]['hash']) == str(adler32(str(self.db[key]['fpath']))):
                         return True
                     else:
                         return False

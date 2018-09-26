@@ -179,15 +179,22 @@ class CocoCaption:
 
         np.savetxt(csv_path, data, fmt="%d")
 
-    # def train_data_stream(self):
-    #     if self.images_train is None:
-    #         raise Exception("Download train_data_first by setting validation_only to False")
+    def train_data_stream(self):
+        if self.images_train is None:
+            raise Exception("Download train_data_first by setting validation_only to False")
         
-    #     if not self.is_training:
-    #         raise Exception("Build index first with build_index(is_training=True)"
+        if not self.is_training:
+            raise Exception("Build index first with build_index(is_training=True)")
         
-        
-    #     return
+        for img_id, q_id, a_id in self.index:
+            img_key = "vqa/images-train/train2014/COCO_train2014_%012d" % img_id
+            img_file = DATA_STORE.get_file(img_key)
+            img = self.image_from_file(img_file["fpath"])
+            q = self.question_index[q_id]
+            #TODO: Fix this hardcode
+            a = self.answer_index(True)[(q_id, a_id)]
+            yield (img, q, a)
+        return
 
     def val_data_stream(self):
         if self.images_val is None:
@@ -205,3 +212,10 @@ class CocoCaption:
     def image_from_file(self, fname:str) -> np.ndarray:
         img = Image.open(fname)
         return np.array(img)
+
+    @property
+    def train_db(self,):
+        if self._train_db is None:
+            self._train_db = tf.data.TFRecordDataset(
+                DATA_STORE['squad/tfrecord/train'], num_parallel_reads=self.num_parallel_reads).map(self._map_fn)
+        return self._train_db
