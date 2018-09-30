@@ -183,7 +183,8 @@ class VQA(object):
     def _map_fn(self, serialized_example):
 
         # Parse the DB out from the tf_record file
-        feature_dict = {'question_word_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
+        feature_dict = {
+                        'question_word_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
                         'question_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
                         'question_length': tf.FixedLenFeature([1], tf.int64),
                         'answer_word_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
@@ -193,7 +194,7 @@ class VQA(object):
                         'image': tf.FixedLenFeature([], tf.string),
                         }
         if self.read_codes:
-            feature_dict['image_code'] = tf.FixedLenSequenceFeature([],tf.float32, allow_missing=True)
+            feature_dict['image_code'] = tf.FixedLenFeature([self.code_shape[0]*self.code_shape[1]*self.code_shape[2]], tf.float32)
 
         features = tf.parse_single_example(
             serialized_example,
@@ -204,19 +205,30 @@ class VQA(object):
         image = tf.image.resize_images(image, self.image_resize_shape)
         image.set_shape((self.image_resize_shape[0], self.image_resize_shape[1], 3))
 
-        # This tuple is the longest, most terrible thing ever
-        return_value = [features['question_word_embedding'],
-                        features['question_char_embedding'],
-                        features['question_length'],
-                        features['answer_word_embedding'],
-                        features['answer_char_embedding'],
-                        features['answer_length'],
-                        image,
-                        features['answer_class']]
         if self.read_codes:
-            image_codes = tf.reshape(feature_dict['image_code'], self.code_shape)
-            return_value.append(image_codes)
-        return return_value
+            image_codes = features['image_code']
+            image_codes = tf.reshape(image_codes, self.code_shape)
+
+            # This tuple is the longest, most terrible thing ever
+            return (features['question_word_embedding'],
+                    features['question_char_embedding'],
+                    features['question_length'],
+                    features['answer_word_embedding'],
+                    features['answer_char_embedding'],
+                    features['answer_length'],
+                    image,
+                    features['answer_class'],
+                    image_codes)
+        else:
+           # This tuple is the longest, most terrible thing ever
+            return (features['question_word_embedding'],
+                    features['question_char_embedding'],
+                    features['question_length'],
+                    features['answer_word_embedding'],
+                    features['answer_char_embedding'],
+                    features['answer_length'],
+                    image,
+                    features['answer_class']) 
 
     @property
     def train_db(self):
