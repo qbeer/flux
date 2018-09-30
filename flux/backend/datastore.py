@@ -12,7 +12,7 @@ import shutil
 import tqdm
 
 from typing import Dict, Optional
-from flux.util.system import mkdir_p, adler32
+from flux.util.system import mkdir_p, adler32, mv_r
 from flux.util.logging import log_warning
 
 
@@ -48,10 +48,10 @@ class DataStore():
         # if not, then we need to initialize a new DBStore
         self.root_filepath = root_filepath
         self.config_file = config_file
+        self.db: Dict[str, Dict[str, Optional[str]]] = {}
         if not os.path.exists(os.path.join(self.root_filepath, self.config_file)):
             if not os.path.exists(self.root_filepath):
                 mkdir_p(self.root_filepath)
-            self.db: Dict[str, Dict[str, Optional[str]]] = {}
         else:
             # Load the information in the database from the file
             with open(os.path.join(self.root_filepath, self.config_file), 'r') as in_file:
@@ -105,8 +105,7 @@ class DataStore():
         # proper location in the store based on key
         file_root_location = key.split('/')
         file_to_location = os.path.join(self.root_filepath, *file_root_location)
-        print(file_to_location)
-        print(folder_path)
+
 
         # If the directory doesn't exist in our local file-store create it
         if not os.path.exists(file_to_location):
@@ -114,8 +113,9 @@ class DataStore():
 
         # If it's not already where it needs to go, move it
         fpath = os.path.join(self.root_filepath, *file_root_location)
-        shutil.move(folder_path, os.path.join(file_to_location, fpath))
 
+        mv_r(folder_path, os.path.join(file_to_location, fpath), overwrite=True)
+        
         db_entry = {
             'fpath': os.path.join(file_to_location, fpath, folder_path.split('/')[-1]),
             'hash': None,

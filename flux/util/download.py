@@ -94,7 +94,7 @@ def maybe_download_text(url:str, charset: str='utf-8') -> str:
 
 
 # Citation: https://stackoverflow.com/questions/38511444/python-download-files-from-google-drive-using-url
-def maybe_download_google_drive(file_id:str, file_destination:str) -> str:
+def maybe_download_google_drive(file_id:str, file_destination:str, force_download=False) -> str:
     """Get List of Files from google drive
 
     Arguments:
@@ -103,6 +103,10 @@ def maybe_download_google_drive(file_id:str, file_destination:str) -> str:
     Returns:
         file_destination
     """
+    if os.path.isfile(file_destination) and not force_download:
+        print("File already exists")
+        return file_destination
+
     GOOGLE_URL = "https://docs.google.com/uc?export=download"
 
     session = requests.Session()
@@ -122,11 +126,10 @@ def get_confirm_token(response):
         if key.startswith('download_warning'):
             return value
     
-    raise Exception("Download Failed.")
     return None
 
 def save_response_content(response, destination, chunk_size):
     with open(destination, "wb") as f:
-        for chunk in response.iter_content(chunk_size):
+        for chunk in  tqdm(response.iter_content(chunk_size)):
             if chunk: # filter out keep-alive new chunks
                 f.write(chunk)
