@@ -208,8 +208,8 @@ class VQA(object):
         image.set_shape((self.image_resize_shape[0], self.image_resize_shape[1], 3))
 
         if self.merge_qa:
-            sliced_answer = tf.slice(features['answer_word_embedding'], [0], features['answer_length'])
-            sliced_question = tf.slice(features['question_word_embedding'],[0],features['question_length'])
+            sliced_answer = tf.slice(features['answer_word_embedding'], [0], tf.cast(features['answer_length'], tf.int32))
+            sliced_question = tf.slice(features['question_word_embedding'],[0],tf.cast(features['question_length'], tf.int32))
             merged_qa = tf.concat([sliced_answer,sliced_question], axis=0)
 
             if self.read_codes:
