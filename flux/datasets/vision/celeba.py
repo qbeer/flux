@@ -48,14 +48,13 @@ class CelebA(Dataset):
         self._train_db = None
         self._val_db = None
         self.num_parallel_reads = num_parallel_reads
+        # Extract labels
+        self.attr2idx: Dict = {}
+        self.idx2attr: Dict = {}
+        log_message("Extracting CelebA labels first")
+        info_files = DATA_STORE[self.keys[1]]
+        self._process_attr(info_files)
         if force_build:
-            # Extract labels
-            self.attr2idx: Dict = {}
-            self.idx2attr: Dict = {}
-            log_message("Extracting CelebA labels first")
-            info_files = DATA_STORE[self.keys[1]]
-            self._process_attr(info_files)
-            
             if shuffle:
                 random.shuffle(self._img_meta)    
 
