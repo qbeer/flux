@@ -208,15 +208,14 @@ class VQA(object):
         image.set_shape((self.image_resize_shape[0], self.image_resize_shape[1], 3))
 
         if self.merge_qa:
-            sliced_answer = tf.slice(answer_word_embedding, [0], features['answer_length'])
+            sliced_answer = tf.slice(features['answer_word_embedding'], [0], features['answer_length'])
             sliced_question = tf.slice(features['question_word_embedding'],[0],features['question_length'])
             merged_qa = tf.concat([sliced_answer,sliced_question], axis=0)
-            
+
             if self.read_codes:
                 image_codes = tf.reshape(features['image_code'], self.code_shape)
-                return (merge_qa, features['question_length'], features['answer_length'], image, image_codes)
-            return (merge_qa, features['question_length'], features['answer_length'], image)
-        
+                return (merged_qa, features['question_length'], features['answer_length'], image, image_codes)
+            return (merged_qa, features['question_length'], features['answer_length'], image)
 
         if self.read_codes:
             image_codes = features['image_code']
@@ -233,7 +232,7 @@ class VQA(object):
                     features['answer_class'],
                     image_codes)
         else:
-           # This tuple is the longest, most terrible thing ever
+            # This tuple is the longest, most terrible thing ever
             return (features['question_word_embedding'],
                     features['question_char_embedding'],
                     features['question_length'],
