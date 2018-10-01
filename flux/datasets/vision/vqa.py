@@ -36,11 +36,13 @@ class VQA(object):
     """ VQA Caption Dataset Downloader
     """
     def __init__(self, num_parallel_reads: int=1, force_rebuild: bool=False, ignore_hashes=False,
-                 image_shape: Sequence[int] = [224,224], read_codes=False, code_shape: Sequence[int] = [7, 7, 2048]) -> None:
+                 image_shape: Sequence[int] = [224,224], read_codes=False, code_shape: Sequence[int] = [7, 7, 2048],
+                 merge_qa=False) -> None:
 
         self.image_resize_shape = image_shape
         self.read_codes = read_codes
         self.code_shape = code_shape
+        self.merge_qa = merge_qa
 
         # Get all of the necessary data
         self.train_a_json_key = maybe_download_and_store_zip('http://visualqa.org/data/mscoco/vqa/v2_Annotations_Train_mscoco.zip', 'coco2014/data/train/annotations')[0]
@@ -204,6 +206,17 @@ class VQA(object):
         image = tf.cast(image, tf.float32) / 255.0
         image = tf.image.resize_images(image, self.image_resize_shape)
         image.set_shape((self.image_resize_shape[0], self.image_resize_shape[1], 3))
+
+        if self.merge_qa:
+            sliced_answer = tf.slice(answer_word_embedding, [0], features['answer_length'])
+            sliced_question = tf.slice(features['question_word_embedding'],[0],features['question_length'])
+            merged_qa = tf.concat([sliced_answer,sliced_question], axis=0)
+            
+            if self.read_codes:
+                image_codes = tf.reshape(features['image_code'], self.code_shape)
+                return (merge_qa, features['question_length'], features['answer_length'], image, image_codes)
+            return (merge_qa, features['question_length'], features['answer_length'], image)
+        
 
         if self.read_codes:
             image_codes = features['image_code']
