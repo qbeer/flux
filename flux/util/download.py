@@ -7,8 +7,6 @@ import urllib
 import urllib.request
 import requests
 
-from typing import Dict
-
 from tqdm import tqdm
 
 from flux.util.logging import log_message
@@ -119,7 +117,7 @@ def maybe_download_google_drive(file_id:str, file_destination:str, force_downloa
         response = session.get(GOOGLE_URL, params = params, stream = True)
 
     save_response_content(response, file_destination, CHUNK_SIZE)
-    return file_destination    
+    return file_destination
 
 def get_confirm_token(response):
     for key, value in response.cookies.items():

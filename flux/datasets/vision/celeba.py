@@ -56,8 +56,7 @@ class CelebA(Dataset):
         self._process_attr(info_files)
         if force_build:
             if shuffle:
-                random.shuffle(self._img_meta)    
-
+                random.shuffle(self._img_meta)
             # Build Dataset
             self._build_dataset("train", shuffle)
             self._build_dataset("val", shuffle)
@@ -68,8 +67,6 @@ class CelebA(Dataset):
 
         self.train_fpath = DATA_STORE[train_root]
         self.val_fpath = DATA_STORE[val_root]
-
-        
         self.num_train_examples = sum(1 for _ in tf.python_io.tf_record_iterator(self.train_fpath))
         self.num_val_examples = sum(1 for _ in tf.python_io.tf_record_iterator(self.train_fpath))
 
@@ -115,7 +112,6 @@ class CelebA(Dataset):
             img_meta = self._img_meta[i].strip("\n").split(" ")
             file_name = os.path.join(img_path, img_meta[0])
             values = img_meta[1:]
-            
             label = []
             
             for attr_name in self.selected_attrs :
@@ -133,7 +129,7 @@ class CelebA(Dataset):
                 log_warning('Error loading image: {}. {} Errors so far.'.format(file_name, errors))
                 continue
 
-            # Add the image data 
+            # Add the image data
             feature = {
                 "label": _float_feature(label),
                 'image_shape': _int64_feature(image.shape),
