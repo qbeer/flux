@@ -113,7 +113,6 @@ class CelebA(Dataset):
             file_name = os.path.join(img_path, img_meta[0])
             values = img_meta[1:]
             label = []
-            
             for attr_name in self.selected_attrs :
                 idx = self.attr2idx[attr_name]
                 if values[idx] == '1' :
