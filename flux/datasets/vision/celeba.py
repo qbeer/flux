@@ -138,10 +138,8 @@ class CelebA(Dataset):
             # Write the TF-Record
             example = tf.train.Example(features=tf.train.Features(feature=feature))
             tf_record_writer.write(example.SerializeToString())
-        
         tf_record_writer.close()
         DATA_STORE.update_hash(record_root)
-
 
     def _map_fn(self, serialized_example):
 
