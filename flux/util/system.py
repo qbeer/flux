@@ -8,8 +8,17 @@ import hashlib
 import zipfile
 import zlib
 import tarfile
+import shutil
 from flux.util.logging import log_message
 
+def mv_r(src: str, dst:str, overwrite:bool) -> None:
+    if overwrite and os.path.exists(dst):
+        shutil.rmtree(dst)
+    try:
+        shutil.copytree(src, dst)
+    except OSError as e:
+        log_message(str(e))
+        return
 
 def mkdir_p(fpath: str) -> None:
     """mkdir -p wrapper in python
@@ -56,7 +65,7 @@ def adler32(path: str) -> str:
     return str(hex(checksum))
 
 
-def unzip(path: str) -> str:
+def unzip(path: str, opt_dir: str=None) -> str:
     """Unzip a file in the current directory
 
     Arguments:
@@ -65,7 +74,10 @@ def unzip(path: str) -> str:
     if (path.endswith('.zip')):
         log_message('Decompressing: {}'.format(path))
         zip_ref = zipfile.ZipFile(path, 'r')
-        output_fpath = os.path.join('/'.join(path.split('/')[:-1]),path.split('/')[-1][:-4])
+        if opt_dir is None:
+            output_fpath = os.path.join('/'.join(path.split('/')[:-1]),path.split('/')[-1][:-4])
+        else:
+            output_fpath = opt_dir
         zip_ref.extractall(path=output_fpath)
         zip_ref.close()
         return output_fpath

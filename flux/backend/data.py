@@ -3,12 +3,52 @@ Backend data manipulation routines
 """
 
 import os
-from typing import List
+from typing import List, Dict
 
 from flux.backend.globals import DATA_STORE
-from flux.util.download import maybe_download
+from flux.util.download import maybe_download, maybe_download_google_drive
 from flux.util.system import untar, unzip, mkdir_p
+from flux.util.logging import log_message
 
+
+def maybe_download_and_store_google_drive(file_pair: Dict[str, str], root_key: str, description: str=None, force_download: bool=False, use_subkeys=True, **kwargs) -> List[str]:
+    old_keys: List[str] = []
+    if not force_download and DATA_STORE.is_valid(root_key) and validate_subkeys(root_key, old_keys):
+        return old_keys
+
+    keys = []
+    DATA_STORE.create_key(root_key, 'root.key', force=True)
+
+    for file_name in file_pair:
+        log_message("Downloading " + file_name)
+        file_id = file_pair[file_name]
+        file_dest = os.path.join(DATA_STORE.working_directory, file_name)
+        data_path = maybe_download_google_drive(file_id, file_dest, force_download=force_download)
+        data_path = post_process(data_path)
+        log_message("Decompressed " + file_name + "to " + data_path)
+        if os.path.isdir(data_path):
+            if use_subkeys:
+                _keys = register_to_datastore(data_path, root_key, description)
+                keys.extend(_keys)
+            else:
+                data_key = os.path.join(root_key, file_name.split(".zip")[0])
+                DATA_STORE.add_folder(data_key, data_path, force=True)
+                keys.append(data_key)
+        else:
+            _key = os.path.join(root_key, file_name.split(".")[0])
+            DATA_STORE.add_file(_key, data_path, description, force=True)
+            keys.append(_key)
+        log_message("Completed " + file_name)
+    DATA_STORE.create_key(root_key, 'root.key', force=True)
+
+    return [k for k in keys] + [root_key]
+
+def post_process(data_path):
+    if data_path.endswith(".zip"):
+        return unzip(data_path)
+    if data_path.endswith(".tar"):
+        return untar(data_path)
+    return data_path
 
 def maybe_download_and_store_zip(url: str, root_key: str, description: str=None, use_subkeys=True, **kwargs) -> List[str]:
     old_keys: List[str] = []
@@ -23,7 +63,9 @@ def maybe_download_and_store_zip(url: str, root_key: str, description: str=None,
     else:
         DATA_STORE.add_folder(root_key, data_path, force=True)
 
-    return [os.path.join(root_key, k) for k in keys] + [root_key]
+    DATA_STORE.create_key(root_key, 'root.key', force=True)
+
+    return [k for k in keys] + [root_key]
 
 
 def maybe_download_and_store_single_file(url: str, key: str, description: str=None, postprocess=None, **kwargs) -> str:
