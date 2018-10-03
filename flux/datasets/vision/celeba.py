@@ -141,7 +141,8 @@ class CelebA(Dataset):
         tf_record_writer.close()
         DATA_STORE.update_hash(record_root)
 
-    def _map_fn(self, serialized_example):
+    @classmethod
+    def _map_fn(serialized_example):
 
         # Parse the DB out from the tf_record file
         features = tf.parse_single_example(
@@ -161,14 +162,14 @@ class CelebA(Dataset):
     def train_db(self):
         if self._train_db is None:
             self._train_db = tf.data.TFRecordDataset(
-                self.train_fpath, num_parallel_reads=self.num_parallel_reads).map(self._map_fn)
+                self.train_fpath, num_parallel_reads=self.num_parallel_reads).map(CelebA._map_fn)
         return self._train_db
 
     @property
     def val_db(self):
         if self._val_db is None:
             self._val_db = tf.data.TFRecordDataset(
-                self.val_fpath, num_parallel_reads=self.num_parallel_reads).map(self._map_fn)
+                self.val_fpath, num_parallel_reads=self.num_parallel_reads).map(CelebA._map_fn)
         return self._val_db
 
     def info(self, ) -> str:
