@@ -246,14 +246,14 @@ class VQA(object):
     def train_db(self):
         if self._train_db is None:
             self._train_db = tf.data.TFRecordDataset(
-                self.train_fpath, num_parallel_reads=self.num_parallel_reads).map(self._map_fn)
+                self.train_fpath).map(self._map_fn, num_parallel_calls=self.num_parallel_reads)
         return self._train_db
 
     @property
     def val_db(self):
         if self._val_db is None:
             self._val_db = tf.data.TFRecordDataset(
-                self.val_fpath, num_parallel_reads=self.num_parallel_reads).map(self._map_fn)
+                self.val_fpath).map(self._map_fn, num_parallel_calls=self.num_parallel_reads)
         return self._val_db
 
     def info(self, ) -> str:
