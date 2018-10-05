@@ -106,7 +106,6 @@ class DataStore():
         file_root_location = key.split('/')
         file_to_location = os.path.join(self.root_filepath, *file_root_location)
 
-
         # If the directory doesn't exist in our local file-store create it
         if not os.path.exists(file_to_location):
             mkdir_p(os.path.join(self.root_filepath, *file_root_location))
