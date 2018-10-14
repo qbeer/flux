@@ -36,7 +36,7 @@ class VQA(object):
     """ VQA Caption Dataset Downloader
     """
     def __init__(self, num_parallel_reads: int=1, force_rebuild: bool=False, ignore_hashes=False,
-                 image_shape: Sequence[int] = [224,224], read_codes=False, code_shape: Sequence[int] = [7, 7, 2048],
+                 image_shape: Sequence[int] = [224, 224], read_codes=False, code_shape: Sequence[int] = [7, 7, 2048],
                  merge_qa=False) -> None:
 
         self.image_resize_shape = image_shape
@@ -66,7 +66,7 @@ class VQA(object):
                 self.train_a_json = json.loads(annotation_file.read())
             with open(DATA_STORE[self.train_q_json_key], 'r') as annotation_file:
                 self.train_q_json = json.loads(annotation_file.read())
-        
+
         need_rebuild_val = force_rebuild
         if not ignore_hashes and (need_rebuild_val or not DATA_STORE.is_valid('vqa/tfrecord/val')):
             log_message('Need to rebuild validation data. Loading JSON annotations.')
@@ -82,7 +82,7 @@ class VQA(object):
             need_rebuild_train = True
             need_rebuild_val = True
         else:
-            with open(DATA_STORE['vqa/dictionary'],'rb') as dict_file:
+            with open(DATA_STORE['vqa/dictionary'], 'rb') as dict_file:
                 self.dictionary = pickle.load(dict_file)
 
         if not ignore_hashes and (force_rebuild or not DATA_STORE.is_valid('vqa/class_map')):
@@ -90,7 +90,7 @@ class VQA(object):
             need_rebuild_train = True
             need_rebuild_val = True
         else:
-            with open(DATA_STORE['vqa/class_map'],'rb') as class_map_file:
+            with open(DATA_STORE['vqa/class_map'], 'rb') as class_map_file:
                 self.class_map = pickle.load(class_map_file)
 
         # Setup some default options for the dataset
@@ -99,7 +99,7 @@ class VQA(object):
         self._val_db = None
         self._train_db = None
         self.num_parallel_reads = num_parallel_reads
-        
+
         # Build the tfrecord dataset from the JSON
         if need_rebuild_train:
             self._build_dataset('train')
@@ -186,17 +186,17 @@ class VQA(object):
 
         # Parse the DB out from the tf_record file
         feature_dict = {
-                        'question_word_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
-                        'question_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
-                        'question_length': tf.FixedLenFeature([1], tf.int64),
-                        'answer_word_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
-                        'answer_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
-                        'answer_length': tf.FixedLenFeature([1], tf.int64),
-                        'answer_class': tf.FixedLenFeature([1], tf.int64),
-                        'image': tf.FixedLenFeature([], tf.string),
-                        }
+            'question_word_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
+            'question_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
+            'question_length': tf.FixedLenFeature([1], tf.int64),
+            'answer_word_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
+            'answer_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
+            'answer_length': tf.FixedLenFeature([1], tf.int64),
+            'answer_class': tf.FixedLenFeature([1], tf.int64),
+            'image': tf.FixedLenFeature([], tf.string),
+        }
         if self.read_codes:
-            feature_dict['image_code'] = tf.FixedLenFeature([self.code_shape[0]*self.code_shape[1]*self.code_shape[2]], tf.float32)
+            feature_dict['image_code'] = tf.FixedLenFeature([self.code_shape[0] * self.code_shape[1] * self.code_shape[2]], tf.float32)
 
         features = tf.parse_single_example(
             serialized_example,
@@ -209,7 +209,7 @@ class VQA(object):
 
         if self.merge_qa:
             sliced_answer = tf.slice(features['answer_word_embedding'], [0], tf.cast(features['answer_length'], tf.int32))
-            sliced_question = tf.slice(features['question_word_embedding'],[0],tf.cast(features['question_length'], tf.int32))
+            sliced_question = tf.slice(features['question_word_embedding'], [0], tf.cast(features['question_length'], tf.int32))
             merged_qa = tf.concat([sliced_question, sliced_answer], axis=0)
 
             if self.read_codes:
@@ -240,20 +240,20 @@ class VQA(object):
                     features['answer_char_embedding'],
                     features['answer_length'],
                     image,
-                    features['answer_class']) 
+                    features['answer_class'])
 
     @property
     def train_db(self):
         if self._train_db is None:
             self._train_db = tf.data.TFRecordDataset(
-                self.train_fpath, num_parallel_reads=self.num_parallel_reads).map(self._map_fn)
+                self.train_fpath).map(self._map_fn, num_parallel_calls=self.num_parallel_reads)
         return self._train_db
 
     @property
     def val_db(self):
         if self._val_db is None:
             self._val_db = tf.data.TFRecordDataset(
-                self.val_fpath, num_parallel_reads=self.num_parallel_reads).map(self._map_fn)
+                self.val_fpath).map(self._map_fn, num_parallel_calls=self.num_parallel_reads)
         return self._val_db
 
     def info(self, ) -> str:

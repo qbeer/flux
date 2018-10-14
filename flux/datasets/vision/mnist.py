@@ -105,7 +105,7 @@ class MNIST():
                 'test_lb': self.test_labels,
             }
 
-            with open(DATA_STORE.create_key('mnist/pickle','mnist.pkl', force=True), 'wb') as pkl_file:
+            with open(DATA_STORE.create_key('mnist/pickle', 'mnist.pkl', force=True), 'wb') as pkl_file:
                 pickle.dump(pickle_dict, pkl_file)
             DATA_STORE.update_hash('mnist/pickle')
         else:

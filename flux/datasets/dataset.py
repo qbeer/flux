@@ -3,7 +3,7 @@ General Structure for Dataset Interface
 """
 from flux.util.system import freespace
 
-from flux.util.logging import log_message, log_warning
+from flux.util.logging import log_message
 
 from flux.backend.globals import ROOT_FPATH
 
@@ -21,8 +21,6 @@ class Dataset(object):
         if req_bytes >= bytes_left:
             log_message("Recommended {} bytes of free space in disk.".format(req_bytes))
             return False
-            
-
         return True
 
     # def data_format(self):

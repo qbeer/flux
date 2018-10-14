@@ -5,9 +5,6 @@ Available Languages:
 2. En-Vi
 
 """
-
-import json
-import pickle
 import tqdm
 import os
 import codecs
@@ -15,12 +12,10 @@ import codecs
 import tensorflow as tf
 
 from typing import Optional, Dict
-from tabulate import tabulate
 
 from flux.backend.data import maybe_download_and_store_single_file
 from flux.backend.globals import DATA_STORE
 from flux.processing.nlp.dictionary import NLPDictionary
-from flux.processing.nlp.util import get_token_span_from_char_span
 from flux.util.logging import log_message
 
 from flux.datasets.dataset import Dataset
@@ -35,7 +30,7 @@ class NMT(Dataset):
         if not Dataset.has_space(NMT.REQ_SIZE):
             return
         if version == None:
-            log_message("Please Select From following translation: {English2Vietnamese}, {English2German}".format(NMT.available_dataset))
+            log_message("Please Select From following translation: en-vi, en-de")
             return
         self.num_parallel_reads = num_parallel_reads
         self.num_val_examples = None
@@ -51,7 +46,6 @@ class NMT(Dataset):
             self.root_key = os.path.join(root_key, "en-vi")
             train_eng_file = os.path.join(site_prefix, "iwslt15.en-vi/train.en")
             train_for_file = os.path.join(site_prefix, "iwslt15.en-vi/train.vi")
-            
             val_eng_file = os.path.join(site_prefix, "iwslt15.en-vi/tst2012.en")
             val_for_file = os.path.join(site_prefix, "iwslt15.en-vi/tst2012.vi")
             
@@ -60,14 +54,14 @@ class NMT(Dataset):
             
             vocab_eng_file = os.path.join(site_prefix, "iwslt15.en-vi/vocab.en")
             vocab_for_file = os.path.join(site_prefix, "iwslt15.en-vi/vocab.vi")
-            size = {"train_eng_file": 13603614,
-                    "train_for_file": 18074646, 
-                    "val_eng_file": 140250,
-                    "val_for_file": 188396, 
-                    "test_eng_file": 132264,
-                    "test_for_file": 183855, 
-                    "vocab_eng_file": 139741,
-                    "vocab_for_file": 46767}
+            # size = {"train_eng_file": 13603614,
+            #         "train_for_file": 18074646,
+            #         "val_eng_file": 140250,
+            #         "val_for_file": 188396, 
+            #         "test_eng_file": 132264,
+            #         "test_for_file": 183855, 
+            #         "vocab_eng_file": 139741,
+            #         "vocab_for_file": 46767}
 
         elif version == "en-de":
             self.root_key = os.path.join(root_key, "en-de")
@@ -82,14 +76,14 @@ class NMT(Dataset):
             
             vocab_eng_file = os.path.join(site_prefix, "wmt14.en-de/vocab.50K.en")
             vocab_for_file = os.path.join(site_prefix, "wmt14.en-de/vocab.50K.de")
-            size = {"train_eng_file": 644874240,
-                    "train_for_file": 717225984, 
-                    "val_eng_file": 406528,
-                    "val_for_file": 470016, 
-                    "test_eng_file": 355328,
-                    "test_for_file": 405504, 
-                    "vocab_eng_file": 404480,
-                    "vocab_for_file": 504832}
+            # size = {"train_eng_file": 644874240,
+            #         "train_for_file": 717225984,
+            #         "val_eng_file": 406528,
+            #         "val_for_file": 470016,
+            #         "test_eng_file": 355328,
+            #         "test_for_file": 405504,
+            #         "vocab_eng_file": 404480,
+            #         "vocab_for_file": 504832}
             
 
         # Download Files
@@ -195,21 +189,9 @@ class NMT(Dataset):
             return len(eng_data)
         else:
             return sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE[record_root]))
-        
-    def build_feature_dict(self, src_dense, for_dense, src_len, for_len):
-        feature_dict = {}
-        feature_dict['eng_word_embedding'] = tf.train.Feature(
-                int64_list=tf.train.Int64List(value=src_dense.flatten()))
-        feature_dict['foreign_word_embedding'] = tf.train.Feature(
-                int64_list=tf.train.Int64List(value=for_dense.flatten()))
-        feature_dict['eng_word_len'] = tf.train.Feature(
-                int64_list=tf.train.Int64List(value=[src_len]))
-        feature_dict['foreign_word_len'] = tf.train.Feature(
-                int64_list=tf.train.Int64List(value=[for_len]))
-        return feature_dict
 
     def _map_fn(self, serialized_example):
-            # Parse the DB out from the tf_record file
+        # Parse the DB out from the tf_record file
         features = tf.parse_single_example(
             serialized_example,
             features={'eng_word_embedding': tf.FixedLenFeature([self.mwl], tf.int64),
@@ -224,6 +206,18 @@ class NMT(Dataset):
         dst_len = tf.cast(features['eng_word_len'], tf.int64)
 
         return (src, dst, src_len, dst_len,)
+
+def build_feature_dict(src_dense, for_dense, src_len, for_len):
+    feature_dict = {}
+    feature_dict['eng_word_embedding'] = tf.train.Feature(
+            int64_list=tf.train.Int64List(value=src_dense.flatten()))
+    feature_dict['foreign_word_embedding'] = tf.train.Feature(
+            int64_list=tf.train.Int64List(value=for_dense.flatten()))
+    feature_dict['eng_word_len'] = tf.train.Feature(
+            int64_list=tf.train.Int64List(value=[src_len]))
+    feature_dict['foreign_word_len'] = tf.train.Feature(
+            int64_list=tf.train.Int64List(value=[for_len]))
+    return feature_dict
         
         
 
