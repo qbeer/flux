@@ -11,6 +11,14 @@ import tarfile
 import shutil
 from flux.util.logging import log_message
 
+def freespace(path):
+    """
+    Returns the amount of free spaces (bytes) on the drive
+    'path' is on.
+    """
+    s = os.statvfs(path)
+    return s.f_bsize * s.f_bavail
+
 def mv_r(src: str, dst:str, overwrite:bool) -> None:
     if overwrite and os.path.exists(dst):
         shutil.rmtree(dst)
