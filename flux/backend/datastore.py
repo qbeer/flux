@@ -48,10 +48,11 @@ class DataStore():
         # if not, then we need to initialize a new DBStore
         self.root_filepath = root_filepath
         self.config_file = config_file
-        self.db: Dict[str, Dict[str, Optional[str]]] = {}
         if not os.path.exists(os.path.join(self.root_filepath, self.config_file)):
             if not os.path.exists(self.root_filepath):
                 mkdir_p(self.root_filepath)
+            self.db: Dict[str, Dict[str, Optional[str]]] = {}
+
         else:
             # Load the information in the database from the file
             with open(os.path.join(self.root_filepath, self.config_file), 'r') as in_file:
