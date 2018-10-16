@@ -63,6 +63,9 @@ def maybe_download_and_store_zip(url: str, root_key: str, description: str=None,
         DATA_STORE.create_key(root_key, 'root.key', force=True)
     else:
         DATA_STORE.add_folder(root_key, data_path, force=True)
+
+    # DATA_STORE.create_key(root_key, 'root.key', force=True)
+
     return [k for k in keys] + [root_key]
 
 
