@@ -22,7 +22,6 @@ import numpy as np
 TRAIN_PARTITION = 0.8
 VAL_PARTITION = 0.1
 TEST_PARTITION = 0.1
-NUM_ATTR = 40
 
 def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=value))
@@ -39,8 +38,12 @@ class CelebA(Dataset):
         file_pair = {"img_align_celeba.zip":"0B7EVK8r0v71pZjFTYXZWM3FlRnM",
                      "list_attr_celeba.txt":"0B7EVK8r0v71pblRyaVFSWGxPY0U"}
         self.root_key = "celebA"
+        self.num_attr = 40
         log_message("Retrieving CelebA data")
         self.keys = maybe_download_and_store_google_drive(file_pair, root_key=self.root_key, force_download=force_download, use_subkeys=False)
+        if len(self.keys) == 0:
+            log_warning("Download Failed, change force_download=True")
+            return
         self.selected_attrs = None
         # Extract each batch
         log_message('Extracting CelebA data...')
@@ -119,7 +122,7 @@ class CelebA(Dataset):
                     label.append(1.0)
                 else :
                     label.append(0.0)
-            assert(len(label) == NUM_ATTR) # All labels should have 40 items.  (One hot)
+            assert(len(label) == self.num_attr) # All labels should have 40 items.  (One hot)
             label = np.array(label, dtype=np.float32)
             # Load the image
             image = load_image(file_name)
@@ -141,14 +144,14 @@ class CelebA(Dataset):
         tf_record_writer.close()
         DATA_STORE.update_hash(record_root)
 
-    @classmethod
-    def _map_fn(serialized_example):
+    # @classmethod
+    def _map_fn(self, serialized_example):
 
         # Parse the DB out from the tf_record file
         features = tf.parse_single_example(
             serialized_example,
             features={
-                    'label': tf.FixedLenFeature([NUM_ATTR], tf.float32),
+                    'label': tf.FixedLenFeature([self.num_attr], tf.float32),
                     'image_shape': tf.FixedLenFeature([3], tf.int64),
                     'image': tf.FixedLenFeature([], tf.string),
                     })
@@ -162,14 +165,14 @@ class CelebA(Dataset):
     def train_db(self):
         if self._train_db is None:
             self._train_db = tf.data.TFRecordDataset(
-                self.train_fpath, num_parallel_reads=self.num_parallel_reads).map(CelebA._map_fn)
+                self.train_fpath, num_parallel_reads=self.num_parallel_reads).map(self._map_fn)
         return self._train_db
 
     @property
     def val_db(self):
         if self._val_db is None:
             self._val_db = tf.data.TFRecordDataset(
-                self.val_fpath, num_parallel_reads=self.num_parallel_reads).map(CelebA._map_fn)
+                self.val_fpath, num_parallel_reads=self.num_parallel_reads).map(self._map_fn)
         return self._val_db
 
     def info(self, ) -> str:

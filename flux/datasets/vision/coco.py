@@ -17,6 +17,7 @@ from flux.processing.nlp.dictionary import NLPDictionary
 from flux.processing.vision.util import load_image
 from flux.util.logging import log_message, log_warning
 
+from flux.datasets.dataset import Dataset
 
 def build_fpath_from_image_id(root_filepath: str, image_id: int, dataset: str) -> str:
     return os.path.join(root_filepath, '{}2014'.format(dataset), 'COCO_{0}2014_{1:012d}.jpg'.format(dataset, image_id))
@@ -32,32 +33,40 @@ def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=value))
 
 
-class COCOCaptions(object):
+class COCOCaptions(Dataset):
+    
     """ MS COCO Caption Dataset
     """
-    def __init__(self, num_parallel_reads: int=1, force_rebuild: bool=False) -> None:
 
+    AMT_REQUIRED=10
+
+    def __init__(self, num_parallel_reads: int=1, force_rebuild: bool=False, nohashcheck=False) -> None:
+        # Amount of Space Check.
+        if not Dataset.has_space(COCOCaptions.AMT_REQUIRED):
+            return
         # Query for the data password
-        if not DATA_STORE.is_valid('coco2014/data/annotations') or force_rebuild:
+        if not DATA_STORE.is_valid('coco2014/data/annotations', nohashcheck=nohashcheck) or force_rebuild:
             maybe_download_and_store_zip('http://images.cocodataset.org/annotations/annotations_trainval2014.zip', 'coco2014/data/annotations', use_subkeys=False)
-        if not DATA_STORE.is_valid('coco2014/data/train/images') or force_rebuild:
+        if not DATA_STORE.is_valid('coco2014/data/train/images', nohashcheck=nohashcheck) or force_rebuild:
             maybe_download_and_store_zip('http://images.cocodataset.org/zips/train2014.zip', 'coco2014/data/train/images', use_subkeys=False)
-        if not DATA_STORE.is_valid('coco2014/data/val/images') or force_rebuild:
+        if not DATA_STORE.is_valid('coco2014/data/val/images', nohashcheck=nohashcheck) or force_rebuild:
             maybe_download_and_store_zip('http://images.cocodataset.org/zips/val2014.zip', 'coco2014/data/val/images', use_subkeys=False)
 
         # TODO (davidchan@berkeley.edu) Need to make sure that this works - there could be download issues, but it's hard to say
         self.train_json_key = 'coco2014/data/annotations'
         self.val_json_key = 'coco2014/data/annotations'
 
+        log_message("Finished Downloading")
+
         # Now that we have the data, load and parse the JSON files
         need_rebuild_train = force_rebuild
-        if not DATA_STORE.is_valid('coco2014/tfrecord/train') or need_rebuild_train:
+        if not DATA_STORE.is_valid('coco2014/tfrecord/train', nohashcheck=nohashcheck) or need_rebuild_train:
             need_rebuild_train = True
             with open(os.path.join(DATA_STORE[self.train_json_key], 'annotations/captions_train2014.json'), 'r') as annotation_file:
                 self.train_json = json.loads(annotation_file.read())
         
         need_rebuild_val = force_rebuild
-        if not DATA_STORE.is_valid('coco2014/tfrecord/val') or need_rebuild_val:
+        if not DATA_STORE.is_valid('coco2014/tfrecord/val', nohashcheck=nohashcheck) or need_rebuild_val:
             need_rebuild_val = True
             with open(os.path.join(DATA_STORE[self.val_json_key], 'annotations/captions_val2014.json'), 'r') as annotation_file:
                 self.val_json = json.loads(annotation_file.read())
@@ -86,15 +95,15 @@ class COCOCaptions(object):
 
         self.train_fpath = DATA_STORE['coco2014/tfrecord/train']
         self.val_fpath = DATA_STORE['coco2014/tfrecord/val']
-
-        # Compute the size of the datasets
+        log_message("Finished building tfrecords.")
+        # # Compute the size of the datasets
         self.num_train_examples = sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['coco2014/tfrecord/train']))
         self.num_val_examples = sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['coco2014/tfrecord/val']))
 
         # Save the vocab
-        with open(DATA_STORE.create_key('coco2014/captions/dictionary', 'dict.pkl', force=True), 'wb') as pkl_file:
-            pickle.dump(self.dictionary, pkl_file)
-            DATA_STORE.update_hash('coco2014/captions/dictionary')
+        dict_path = DATA_STORE.create_key('coco2014/captions/dictionary', 'dict.pkl', force=True)
+        self.dictionary.save(dict_path)
+        DATA_STORE.update_hash('coco2014/captions/dictionary')
 
         self.word_vocab_size = len(self.dictionary.word_dictionary)
         self.char_vocab_size = len(self.dictionary.char_dictionary)

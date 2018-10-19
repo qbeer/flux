@@ -68,8 +68,9 @@ def maybe_download(file_name: str, source_url: str, work_directory: str, postpro
         stat_info = os.stat(filepath)
         log_message('Successfully downloaded {} ({} bytes).'.format(
             file_name, stat_info.st_size))
-        if postprocess is not None:
-            filepath = postprocess(filepath)
+    if postprocess is not None:
+        filepath = postprocess(filepath)
+        # If the file exists, then we should return folder rather than *.zip
     return filepath
 
 
