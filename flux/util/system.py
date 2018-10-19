@@ -11,7 +11,7 @@ import tarfile
 import shutil
 from flux.util.logging import log_message
 
-def mv_r(src: str, dst:str, overwrite:bool) -> None:
+def mv_r(src: str, dst:str, overwrite:bool=False) -> None:
     if overwrite and os.path.exists(dst):
         shutil.rmtree(dst)
     try:

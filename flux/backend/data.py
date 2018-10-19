@@ -60,12 +60,12 @@ def maybe_download_and_store_zip(url: str, root_key: str, description: str=None,
     keys: List[str] = []
     if use_subkeys:
         keys = register_to_datastore(data_path, root_key, description)
+        # DATA_STORE.create_key(root_key, 'root.key', force=True)
     else:
         DATA_STORE.add_folder(root_key, data_path, force=True)
 
-    DATA_STORE.create_key(root_key, 'root.key', force=True)
 
-    return [k for k in keys] + [root_key]
+    return [os.path.join(root_key, k) for k in keys]
 
 
 def maybe_download_and_store_single_file(url: str, key: str, description: str=None, postprocess=None, **kwargs) -> str:
@@ -125,7 +125,7 @@ def register_to_datastore(data_path, root_key, description):
                 key = key[: key.rfind('.')] if key.rfind('.') > 0 else key
                 new_keys.append(key)
                 DATA_STORE.add_file(os.path.join(root_key,key), os.path.join(root, filename), description, force=True)
-    DATA_STORE.create_key(root_key, 'root.key', force=True)
+    DATA_STORE.create_key(root_key, '', force=True)
     return new_keys
 
 
