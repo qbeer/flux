@@ -19,7 +19,7 @@ def freespace(path):
     s = os.statvfs(path)
     return s.f_bsize * s.f_bavail
 
-def mv_r(src: str, dst:str, overwrite:bool) -> None:
+def mv_r(src: str, dst:str, overwrite:bool=False) -> None:
     if overwrite and os.path.exists(dst):
         shutil.rmtree(dst)
     try:

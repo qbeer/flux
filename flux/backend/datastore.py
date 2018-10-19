@@ -66,7 +66,6 @@ class DataStore():
         self.flush()
 
     def add_file(self, key: str, fpath: str, description: str=None, force: bool=False) -> Dict[str, Optional[str]]:
-
         if key in self.db and not force:
             # The file already exists in our data store
             return self.db[key]
@@ -79,22 +78,21 @@ class DataStore():
 
         # If the directory doesn't exist in our local file-store create it
         if not os.path.exists(file_to_location):
-            mkdir_p(os.path.join(self.root_filepath, *file_root_location))
+            mkdir_p(file_to_location)
 
+        destination_file = os.path.join(file_to_location, fpath.split('/')[-1])
         # If it's not already where it needs to go, move it
-        if not os.path.exists(os.path.join(file_to_location, fpath.split('/')[-1])):
-            os.rename(fpath, os.path.join(
-                file_to_location, fpath.split('/')[-1]))
+        if not os.path.exists(destination_file):
+            os.rename(fpath, destination_file)
 
         db_entry = {
-            'fpath': os.path.join(file_to_location, fpath.split('/')[-1]),
-            'hash': adler32(os.path.join(file_to_location, fpath.split('/')[-1])),
+            'fpath': destination_file,
+            'hash': adler32(destination_file),
             'folder': '0',
             'description': description
         }
         self.db[key] = db_entry
         self.flush()
-
         return self.db[key]
 
     def add_folder(self, key: str, folder_path: str, description: str=None, force: bool=False) -> Dict[str, Optional[str]]:
