@@ -1,11 +1,9 @@
 """
-Utils for parsing the MSCOCO/VQA dataset
+Utils for parsing the Visual7W dataset
 """
 
 import json
 import os
-import pickle
-
 import numpy as np
 import tensorflow as tf
 import tqdm
@@ -48,6 +46,10 @@ class Visual7W(object):
         self.images_key = maybe_download_and_store_zip('http://vision.stanford.edu/yukezhu/visual7w_images.zip', 'visual7w/data/images', use_subkeys=False)
         # Get all of the necessary data
         self.dataset_key = maybe_download_and_store_zip("http://web.stanford.edu/~yukez/papers/resources/dataset_v7w_{0}.zip".format(data_type), 'visual7w/{0}/data/json'.format(data_type), use_subkeys=True)
+        # Get the grounding data
+        self.grounding_key = maybe_download_and_store_zip("http://web.stanford.edu/~yukez/papers/resources/dataset_v7w_grounding_annotations.zip", "visual/data/grounding", use_subkeys=True)
+        
+        
         # Compute the size of the datasets
         self.num_train_examples = 0
         self.num_val_examples = 0
@@ -105,6 +107,17 @@ class Visual7W(object):
         self.word_vocab_size = len(self.dictionary.word_dictionary)
         self.char_vocab_size = len(self.dictionary.char_dictionary)
 
+    def get_boxes(self, box_id, boxes_dict):
+        assert type(box_id) == int
+        curr_box = boxes_dict[box_id]
+        _box_id = curr_box['box_id']
+        assert box_id == _box_id
+        answer_name = curr_box['name']
+        answer_loc = [curr_box['x'], curr_box['y'], curr_box['width'], curr_box['height']]
+        answer_dense, answer_len = self.dictionary.dense_parse(answer_name, word_padding=self.max_word_length, char_padding=self.max_char_length)
+        return (answer_loc, answer_dense, answer_len)
+        
+
     def _build_images(self, ) -> None:
         # Define the Record Root
 
@@ -124,9 +137,6 @@ class Visual7W(object):
 
         images = self._json['images']
 
-        if self.data_type == "pointing":
-            boxes = self._json['boxes']
-
         total_num_examples = len(images)
         for idx, entry in tqdm.tqdm(enumerate(images), total=total_num_examples):
             # Load the image
@@ -134,6 +144,7 @@ class Visual7W(object):
             image_path = os.path.join(self.image_root_path, "images", filename)
             assert os.path.exists(image_path)
             image = load_image(image_path)
+            image_shape = list(image.shape)
             image = encode_jpeg(image)
             if image is None:
                 errors += 1
@@ -151,32 +162,12 @@ class Visual7W(object):
 
             image_id = entry['image_id']
 
-            if self.data_type == "pointing":
-                curr_box = boxes[idx]
-                box_id = curr_box['box_id']
-                box_name = curr_box['name']
-                box_height = curr_box['height']
-                box_width = curr_box['width']
-                box_x = curr_box['x']
-                box_y = curr_box['y']
 
-                label_dense, label_len = self.dictionary.dense_parse(box_name, word_padding=self.max_word_length, char_padding=self.max_char_length)
-
-                # Add the image data
-                feature = {
-                    'box_id': _int64_feature([box_id]),
-                    "box_coord": _int64_feature([box_x, box_y, box_width, box_height]),
-                    'label_word_embedding': _int64_feature(np.ravel(label_dense[0]).astype(np.int64)),
-                    'label_char_embedding': _int64_feature(np.ravel(label_dense[1]).astype(np.int64)),
-                    'label_len': _int64_feature([label_len]),
-                    'image_id': _int64_feature([image_id]),
-                    'image': _bytes_feature(tf.compat.as_bytes(image)),
-                }
-            else:
-                feature = {
-                    'image_id': _int64_feature([image_id]),
-                    'image': _bytes_feature(tf.compat.as_bytes(image)),
-                }    
+            feature = {
+                'image_size': _int64_feature(image_shape),
+                'image_id': _int64_feature([image_id]),
+                'image': _bytes_feature(tf.compat.as_bytes(image)),
+            }    
             # Write the TF-Record
             example = tf.train.Example(features=tf.train.Features(feature=feature))
 
@@ -207,6 +198,9 @@ class Visual7W(object):
         log_message('Building the dataset...')
 
         images = self._json['images']
+        if self.data_type == "pointing":
+            boxes = self._json['boxes']
+            boxes_dict = {d["box_id"]:d for d in boxes}
 
         total_num_examples = len(images)
         for idx, entry in tqdm.tqdm(enumerate(images), total=total_num_examples):
@@ -265,13 +259,27 @@ class Visual7W(object):
                     }
                 
                 else:
+                    answer_loc, answer_dense, answer_len = self.get_boxes(answer, boxes_dict)
+                    m1_loc, m1_dense, m1_len = self.get_boxes(mlt_choice[0], boxes_dict)
+                    m2_loc, m2_dense, m2_len = self.get_boxes(mlt_choice[1], boxes_dict)
+                    m3_loc, m3_dense, m3_len = self.get_boxes(mlt_choice[2], boxes_dict)
+                    coord = answer_loc + m1_loc + m2_loc + m3_loc
                     # Add the image data
                     feature = {
                         'question_word_embedding': _int64_feature(np.ravel(question_dense[0]).astype(np.int64)),
                         'question_char_embedding': _int64_feature(np.ravel(question_dense[1]).astype(np.int64)),
                         'question_length': _int64_feature([question_len]),
-                        'answer_choices': _int64_feature(mlt_choice),
-                        'answer': _int64_feature([answer]),
+                        'ans_word_embedding': _int64_feature(np.ravel(answer_dense[0]).astype(np.int64)),
+                        'ans_char_embedding': _int64_feature(np.ravel(answer_dense[1]).astype(np.int64)),
+                        'ans_length': _int64_feature([answer_len]),
+                        "coordinate": _int64_feature(coord),
+                        'm1_embedding': _int64_feature(np.ravel(m1_dense[0]).astype(np.int64)),
+                        'm1_char_embedding': _int64_feature(np.ravel(m1_dense[1]).astype(np.int64)),
+                        'm2_embedding': _int64_feature(np.ravel(m2_dense[0]).astype(np.int64)),
+                        'm2_char_embedding': _int64_feature(np.ravel(m2_dense[1]).astype(np.int64)),
+                        'm3_embedding': _int64_feature(np.ravel(m3_dense[0]).astype(np.int64)),
+                        'm3_char_embedding': _int64_feature(np.ravel(m3_dense[1]).astype(np.int64)),
+                        'mc_len': _int64_feature([m1_len, m2_len, m3_len]),
                         'qa_id': _int64_feature([qa_id]),
                         "q_type": _bytes_feature(tf.compat.as_bytes(question_type)),
                         'image_id': _int64_feature([image_id]),
@@ -289,25 +297,16 @@ class Visual7W(object):
         DATA_STORE.update_hash(val_record_root)
 
 
-
+    
     
 
     def _map_image_fn(self, serialized_example):
-        if self.data_type == "pointing":
-            feature_dict = {
-                'box_id': tf.FixedLenFeature([1], tf.int64),
-                "box_coord": tf.FixedLenFeature([4], tf.int64),
-                'label_word_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
-                'label_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
-                'label_len': tf.FixedLenFeature([1], tf.int64),
-                'image_id': tf.FixedLenFeature([1], tf.int64),
-                'image': tf.FixedLenFeature([], tf.string),
-            }
-        else:
-            feature_dict = {
-                'image_id': tf.FixedLenFeature([1], tf.int64),
-                'image': tf.FixedLenFeature([], tf.string),
-            } 
+
+        feature_dict = {
+            'image_size': tf.FixedLenFeature([3], tf.int64),
+            'image_id': tf.FixedLenFeature([1], tf.int64),
+            'image': tf.FixedLenFeature([], tf.string),
+        } 
 
         # if self.read_codes:
         #     feature_dict['image_code'] = tf.FixedLenFeature([self.code_shape[0] * self.code_shape[1] * self.code_shape[2]], tf.float32)
@@ -318,29 +317,32 @@ class Visual7W(object):
 
         image = tf.image.decode_jpeg(features['image'], channels=3)
         image = tf.cast(image, tf.float32) / 255.0
-        image = tf.image.resize_images(image, self.image_resize_shape)
-        image.set_shape((self.image_resize_shape[0], self.image_resize_shape[1], 3))
 
-        if self.data_type == "pointing":
-            return (features['box_id'],
-                    features['box_coord'],
-                    features['label_word_embedding'],
-                    features['label_char_embedding'],
-                    features['label_len'],
-                    image,
-                    features['image_id'])
-        else:
-            return (image,
-                    features['image_id'])            
+        if self.data_type == "telling":
+            image = tf.image.resize_images(image, self.image_resize_shape)
+            image.set_shape((self.image_resize_shape[0], self.image_resize_shape[1], 3))
+
+        return (image,
+                features['image_size'],
+                features['image_id'])            
 
     def _map_dataset_fn(self, serialized_example):
         if self.data_type == "pointing":
             feature_dict = {
             'question_word_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
             'question_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
+            "coordinate": tf.FixedLenFeature([16], tf.int64),
             'question_length': tf.FixedLenFeature([1], tf.int64),
-            'answer_choices': tf.FixedLenFeature([3], tf.int64),
-            'answer': tf.FixedLenFeature([1], tf.int64),
+            'ans_word_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
+            'ans_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
+            'ans_length': tf.FixedLenFeature([1], tf.int64),
+            'm1_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
+            'm1_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
+            'm2_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
+            'm2_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
+            'm3_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
+            'm3_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
+            'mc_len': tf.FixedLenFeature([3], tf.int64),
             'qa_id': tf.FixedLenFeature([1], tf.int64),
             'image_id': tf.FixedLenFeature([1], tf.int64),
             "q_type": tf.FixedLenFeature([], tf.string)
@@ -374,8 +376,17 @@ class Visual7W(object):
             return (features['question_word_embedding'],
                     features['question_char_embedding'],
                     features['question_length'],
-                    features['answer_choices'],
-                    features['answer'],
+                    features['ans_word_embedding'],
+                    features['ans_char_embedding'],
+                    features['ans_length'],
+                    features['m1_embedding'],
+                    features['m1_char_embedding'],
+                    features['m2_embedding'],
+                    features['m2_char_embedding'],
+                    features['m3_embedding'],
+                    features['m3_char_embedding'],
+                    features['mc_len'],
+                    features['coordinate'],
                     features['qa_id'],
                     features['q_type'],
                     features['image_id'])
