@@ -5,6 +5,7 @@ Utilities for downloading data from the internet
 import os
 import urllib
 import urllib.request
+import requests
 
 from tqdm import tqdm
 
@@ -14,6 +15,7 @@ from flux.util.system import mkdir_p
 tqdm.monitor_interval = 0
 
 MOCK_BROWSER_HEADER = [('User-agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.0.7) Gecko/2009021910 Firefox/3.0.7')]
+CHUNK_SIZE = 1024 * 32
 
 class TqdmUpTo(tqdm):
     """Provides `update_to(n)` which uses `tqdm.update(delta_n)`."""
@@ -66,8 +68,9 @@ def maybe_download(file_name: str, source_url: str, work_directory: str, postpro
         stat_info = os.stat(filepath)
         log_message('Successfully downloaded {} ({} bytes).'.format(
             file_name, stat_info.st_size))
-        if postprocess is not None:
-            filepath = postprocess(filepath)
+    if postprocess is not None:
+        filepath = postprocess(filepath)
+        # If the file exists, then we should return folder rather than *.zip
     return filepath
 
 
@@ -87,3 +90,45 @@ def maybe_download_text(url:str, charset: str='utf-8') -> str:
         str -- The decoded data
     """
     return urllib.request.urlopen(url).read().decode(charset)
+
+
+# Citation: https://stackoverflow.com/questions/38511444/python-download-files-from-google-drive-using-url
+def maybe_download_google_drive(file_id:str, file_destination:str, force_download=False) -> str:
+    """Get List of Files from google drive
+
+    Arguments:
+        file_id -- url id of the file
+        file_destination -- place to download the file
+    Returns:
+        file_destination
+    """
+    if os.path.isfile(file_destination) and not force_download:
+        print("File already exists")
+        return file_destination
+
+    GOOGLE_URL = "https://docs.google.com/uc?export=download"
+
+    session = requests.Session()
+
+    response = session.get(GOOGLE_URL, params = { 'id' : file_id }, stream = True)
+    token = get_confirm_token(response)
+
+    if token:
+        params = { 'id' : file_id, 'confirm' : token }
+        response = session.get(GOOGLE_URL, params = params, stream = True)
+
+    save_response_content(response, file_destination, CHUNK_SIZE)
+    return file_destination
+
+def get_confirm_token(response):
+    for key, value in response.cookies.items():
+        if key.startswith('download_warning'):
+            return value
+    
+    return None
+
+def save_response_content(response, destination, chunk_size):
+    with open(destination, "wb") as f:
+        for chunk in  tqdm(response.iter_content(chunk_size)):
+            if chunk: # filter out keep-alive new chunks
+                f.write(chunk)

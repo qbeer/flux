@@ -9,9 +9,10 @@ import os
 import atexit
 import json
 import shutil
+import tqdm
 
 from typing import Dict, Optional
-from flux.util.system import mkdir_p, md5
+from flux.util.system import mkdir_p, adler32, mv_r
 from flux.util.logging import log_warning
 
 
@@ -51,6 +52,7 @@ class DataStore():
             if not os.path.exists(self.root_filepath):
                 mkdir_p(self.root_filepath)
             self.db: Dict[str, Dict[str, Optional[str]]] = {}
+
         else:
             # Load the information in the database from the file
             with open(os.path.join(self.root_filepath, self.config_file), 'r') as in_file:
@@ -65,7 +67,6 @@ class DataStore():
         self.flush()
 
     def add_file(self, key: str, fpath: str, description: str=None, force: bool=False) -> Dict[str, Optional[str]]:
-
         if key in self.db and not force:
             # The file already exists in our data store
             return self.db[key]
@@ -78,22 +79,21 @@ class DataStore():
 
         # If the directory doesn't exist in our local file-store create it
         if not os.path.exists(file_to_location):
-            mkdir_p(os.path.join(self.root_filepath, *file_root_location))
+            mkdir_p(file_to_location)
 
+        destination_file = os.path.join(file_to_location, fpath.split('/')[-1])
         # If it's not already where it needs to go, move it
-        if not os.path.exists(os.path.join(file_to_location, fpath.split('/')[-1])):
-            os.rename(fpath, os.path.join(
-                file_to_location, fpath.split('/')[-1]))
+        if not os.path.exists(destination_file):
+            os.rename(fpath, destination_file)
 
         db_entry = {
-            'fpath': os.path.join(file_to_location, fpath.split('/')[-1]),
-            'hash': md5(os.path.join(file_to_location, fpath.split('/')[-1])),
+            'fpath': destination_file,
+            'hash': adler32(destination_file),
             'folder': '0',
             'description': description
         }
         self.db[key] = db_entry
         self.flush()
-
         return self.db[key]
 
     def add_folder(self, key: str, folder_path: str, description: str=None, force: bool=False) -> Dict[str, Optional[str]]:
@@ -111,11 +111,11 @@ class DataStore():
 
         # If it's not already where it needs to go, move it
         fpath = os.path.join(self.root_filepath, *file_root_location)
-        shutil.move(folder_path, os.path.join(file_to_location, fpath))
 
+        mv_r(folder_path, os.path.join(file_to_location, fpath), overwrite=True)
         db_entry = {
-            'fpath': os.path.join(file_to_location, fpath, folder_path.split('/')[-1]),
-            'hash': None, #TODO: Implement this?
+            'fpath': os.path.join(file_to_location, fpath),
+            'hash': None,
             'folder': '1',
             'description': description
         }
@@ -138,7 +138,7 @@ class DataStore():
         if key in self.db:
             # Check that the hash is OK
             if hash is not None:
-                if md5(str(self.db[key]['fpath'])) == self.db[key]['hash']:
+                if adler32(str(self.db[key]['fpath'])) == self.db[key]['hash']:
                     return self.db[key]
                 else:
                     # We have the file, but the hash isn't ok. We remove
@@ -216,15 +216,26 @@ class DataStore():
 
     def update_hash(self, key: str) -> None:
         if key in self.db:
-            self.db[key]['hash'] = str(md5(str(self.db[key]['fpath'])))
+            self.db[key]['hash'] = str(adler32(str(self.db[key]['fpath'])))
             self.flush()
             
+
+    def rehash_all(self,) -> None:
+        pop_keys = []
+        for key in tqdm.tqdm(self.db.keys()):
+            try:
+                if self.db[key]['hash'] is not None:
+                    self.update_hash(key)
+            except FileNotFoundError:
+                pop_keys.append(key)
+        for ky in pop_keys:
+            self.db.pop(ky)
 
     def is_valid(self, key: str, nohashcheck=False) -> bool:
         try:
             if key in self.db:
                 if not nohashcheck and self.db[key]['hash'] is not None:
-                    if str(self.db[key]['hash']) == str(md5(str(self.db[key]['fpath']))):
+                    if str(self.db[key]['hash']) == str(adler32(str(self.db[key]['fpath']))):
                         return True
                     else:
                         return False

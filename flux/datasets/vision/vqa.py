@@ -35,9 +35,14 @@ def _int64_feature(value):
 class VQA(Dataset):
     """ VQA Caption Dataset Downloader
     """
-    def __init__(self, num_parallel_reads: int=1, force_rebuild: bool=False, ignore_hashes=False, image_shape: Sequence[int] = [224,224]) -> None:
+    def __init__(self, num_parallel_reads: int=1, force_rebuild: bool=False, ignore_hashes=False,
+                 image_shape: Sequence[int] = [224, 224], read_codes=False, code_shape: Sequence[int] = [7, 7, 2048],
+                 merge_qa=False) -> None:
 
         self.image_resize_shape = image_shape
+        self.read_codes = read_codes
+        self.code_shape = code_shape
+        self.merge_qa = merge_qa
 
         # Get all of the necessary data
         self.train_a_json_key = maybe_download_and_store_zip('http://visualqa.org/data/mscoco/vqa/v2_Annotations_Train_mscoco.zip', 'coco2014/data/train/annotations')[0]
@@ -48,8 +53,9 @@ class VQA(Dataset):
         maybe_download_and_store_zip('http://images.cocodataset.org/zips/val2014.zip', 'coco2014/data/val/images', use_subkeys=False)
 
         # Compute the size of the datasets
-        self.num_train_examples = 443757 #sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['vqa/tfrecord/train']))
-        self.num_val_examples = 214654 #sum(1 for _ in tf.python_io.tf_record_iterator(DATA_STORE['vqa/tfrecord/val']))
+        self.num_train_examples = 443757
+        self.num_val_examples = 214654
+        self.num_classes = 29332
 
         # Now that we have the data, load and parse the JSON files
         need_rebuild_train = force_rebuild
@@ -60,7 +66,7 @@ class VQA(Dataset):
                 self.train_a_json = json.loads(annotation_file.read())
             with open(DATA_STORE[self.train_q_json_key], 'r') as annotation_file:
                 self.train_q_json = json.loads(annotation_file.read())
-        
+
         need_rebuild_val = force_rebuild
         if not ignore_hashes and (need_rebuild_val or not DATA_STORE.is_valid('vqa/tfrecord/val')):
             log_message('Need to rebuild validation data. Loading JSON annotations.')
@@ -76,7 +82,7 @@ class VQA(Dataset):
             need_rebuild_train = True
             need_rebuild_val = True
         else:
-            with open(DATA_STORE['vqa/dictionary'],'rb') as dict_file:
+            with open(DATA_STORE['vqa/dictionary'], 'rb') as dict_file:
                 self.dictionary = pickle.load(dict_file)
 
         if not ignore_hashes and (force_rebuild or not DATA_STORE.is_valid('vqa/class_map')):
@@ -84,8 +90,8 @@ class VQA(Dataset):
             need_rebuild_train = True
             need_rebuild_val = True
         else:
-            with open(DATA_STORE['vqa/class_map'],'rb') as class_map_file:
-                self.class_map_file = pickle.load(class_map_file)
+            with open(DATA_STORE['vqa/class_map'], 'rb') as class_map_file:
+                self.class_map = pickle.load(class_map_file)
 
         # Setup some default options for the dataset
         self.max_word_length = 50
@@ -93,7 +99,6 @@ class VQA(Dataset):
         self._val_db = None
         self._train_db = None
         self.num_parallel_reads = num_parallel_reads
-        self.sample_triple = None
         # Build the tfrecord dataset from the JSON
         if need_rebuild_train:
             self._build_dataset('train')
@@ -156,9 +161,8 @@ class VQA(Dataset):
             if answer_raw not in self.class_map:
                 self.class_map[answer_raw] = len(self.class_map)
             answer_class = self.class_map[answer_raw]
-                
 
-            # Add the image data 
+            # Add the image data
             feature = {
                 'question_word_embedding': _int64_feature(np.ravel(question_dense[0]).astype(np.int64)),
                 'question_char_embedding': _int64_feature(np.ravel(question_dense[1]).astype(np.int64)),
@@ -173,51 +177,81 @@ class VQA(Dataset):
             # Write the TF-Record
             example = tf.train.Example(features=tf.train.Features(feature=feature))
             tf_record_writer.write(example.SerializeToString())
-        
-        self.sample_triple = (image, question_raw, answer_raw)
         tf_record_writer.close()
         DATA_STORE.update_hash(record_root)
 
     def _map_fn(self, serialized_example):
 
         # Parse the DB out from the tf_record file
+        feature_dict = {
+            'question_word_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
+            'question_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
+            'question_length': tf.FixedLenFeature([1], tf.int64),
+            'answer_word_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
+            'answer_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
+            'answer_length': tf.FixedLenFeature([1], tf.int64),
+            'answer_class': tf.FixedLenFeature([1], tf.int64),
+            'image': tf.FixedLenFeature([], tf.string),
+        }
+        if self.read_codes:
+            feature_dict['image_code'] = tf.FixedLenFeature([self.code_shape[0] * self.code_shape[1] * self.code_shape[2]], tf.float32)
+
         features = tf.parse_single_example(
             serialized_example,
-            features={'question_word_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
-                      'question_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
-                      'question_length': tf.FixedLenFeature([1], tf.int64),
-                      'answer_word_embedding': tf.FixedLenFeature([self.max_word_length], tf.int64),
-                      'answer_char_embedding': tf.FixedLenFeature([self.max_word_length, self.max_char_length], tf.int64),
-                      'answer_length': tf.FixedLenFeature([1], tf.int64),
-                      'answer_class': tf.FixedLenFeature([1], tf.int64),
-                      'image': tf.FixedLenFeature([], tf.string),
-                      })
+            features=feature_dict)
 
-        image = tf.image.decode_jpeg(features['image'], tf.uint8)
+        image = tf.image.decode_jpeg(features['image'], channels=3)
         image = tf.cast(image, tf.float32) / 255.0
+        image = tf.image.resize_images(image, self.image_resize_shape)
+        image.set_shape((self.image_resize_shape[0], self.image_resize_shape[1], 3))
 
-        # This tuple is the longest, most terrible thing ever
-        return (features['question_word_embedding'],
-                features['question_char_embedding'],
-                features['question_length'],
-                features['answer_word_embedding'],
-                features['answer_char_embedding'],
-                features['answer_length'],
-                image,
-                features['answer_class'])
+        if self.merge_qa:
+            sliced_answer = tf.slice(features['answer_word_embedding'], [0], tf.cast(features['answer_length'], tf.int32))
+            sliced_question = tf.slice(features['question_word_embedding'], [0], tf.cast(features['question_length'], tf.int32))
+            merged_qa = tf.concat([sliced_question, sliced_answer], axis=0)
+
+            if self.read_codes:
+                image_codes = tf.reshape(features['image_code'], self.code_shape)
+                return (merged_qa, features['question_length'], features['answer_length'], image, image_codes)
+            return (merged_qa, features['question_length'], features['answer_length'], image)
+
+        if self.read_codes:
+            image_codes = features['image_code']
+            image_codes = tf.reshape(image_codes, self.code_shape)
+
+            # This tuple is the longest, most terrible thing ever
+            return (features['question_word_embedding'],
+                    features['question_char_embedding'],
+                    features['question_length'],
+                    features['answer_word_embedding'],
+                    features['answer_char_embedding'],
+                    features['answer_length'],
+                    image,
+                    features['answer_class'],
+                    image_codes)
+        else:
+            # This tuple is the longest, most terrible thing ever
+            return (features['question_word_embedding'],
+                    features['question_char_embedding'],
+                    features['question_length'],
+                    features['answer_word_embedding'],
+                    features['answer_char_embedding'],
+                    features['answer_length'],
+                    image,
+                    features['answer_class'])
 
     @property
     def train_db(self):
         if self._train_db is None:
             self._train_db = tf.data.TFRecordDataset(
-                self.train_fpath, num_parallel_reads=self.num_parallel_reads).map(self._map_fn)
+                self.train_fpath).map(self._map_fn, num_parallel_calls=self.num_parallel_reads)
         return self._train_db
 
     @property
     def val_db(self):
         if self._val_db is None:
             self._val_db = tf.data.TFRecordDataset(
-                self.val_fpath, num_parallel_reads=self.num_parallel_reads).map(self._map_fn)
+                self.val_fpath).map(self._map_fn, num_parallel_calls=self.num_parallel_reads)
         return self._val_db
 
     @property
