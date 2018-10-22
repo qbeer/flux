@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from .context import flux
+import context
 import unittest
 class BasicTestSuite(unittest.TestCase):
     """Basic test cases."""

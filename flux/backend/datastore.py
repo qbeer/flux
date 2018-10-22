@@ -27,7 +27,7 @@ class DataStore():
     and making sure that files exist on the data backend.
     """
 
-    def __init__(self, root_filepath: str, config_file: str='.flux_config.json') -> None:
+    def __init__(self, root_filepath: str, config_file: str='.flux_config.json', testing=False) -> None:
         """Create a DataStore object
 
         Arguments:
@@ -60,6 +60,7 @@ class DataStore():
         self.working_directory = os.path.join(self.root_filepath, 'work')
         if not os.path.exists(self.working_directory):
             mkdir_p(self.working_directory)
+        self.testing = testing
 
         self.flush()
 
@@ -104,9 +105,6 @@ class DataStore():
         # proper location in the store based on key
         file_root_location = key.split('/')
         file_to_location = os.path.join(self.root_filepath, *file_root_location)
-        print(file_to_location)
-        print(folder_path)
-
         # If the directory doesn't exist in our local file-store create it
         if not os.path.exists(file_to_location):
             mkdir_p(os.path.join(self.root_filepath, *file_root_location))
@@ -117,7 +115,7 @@ class DataStore():
 
         db_entry = {
             'fpath': os.path.join(file_to_location, fpath, folder_path.split('/')[-1]),
-            'hash': None,
+            'hash': None, #TODO: Implement this?
             'folder': '1',
             'description': description
         }
@@ -220,6 +218,7 @@ class DataStore():
         if key in self.db:
             self.db[key]['hash'] = str(md5(str(self.db[key]['fpath'])))
             self.flush()
+            
 
     def is_valid(self, key: str, nohashcheck=False) -> bool:
         try:
@@ -260,4 +259,5 @@ class DataStore():
         try:
             shutil.rmtree(self.working_directory)
         except Exception as ex:
-            log_warning('Error removing working directory: {}'.format(str(ex)))
+            if not self.testing:
+                log_warning('Error removing working directory: {}'.format(str(ex)))

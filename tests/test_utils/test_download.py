@@ -35,3 +35,4 @@ class DownloadTestCases(unittest.TestCase):
         if not self.passed:
             self.assertTrue(compare(file_path, self.sample_txt))
         return
+        
