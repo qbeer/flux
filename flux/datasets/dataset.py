@@ -29,7 +29,6 @@ class Dataset(object):
     @property
     def train_db(self):
         raise NotImplementedError("Train_db not implemented. Should return a dataset iterator.")
-   
     @property
     def val_db(self):
         raise NotImplementedError("val_db not implemented. ")

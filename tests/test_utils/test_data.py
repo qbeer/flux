@@ -1,5 +1,4 @@
 import unittest
-import os
 
 class DataFlowTestCases(unittest.TestCase):
     """ Tests for Download Utilities """
@@ -9,8 +8,7 @@ class DataFlowTestCases(unittest.TestCase):
 
     def test_maybe_download_and_store_google_drive(self):
         """Given a path, test_maybe_download_and_store_google_drive
-           will return a set of keys
-        
+           will return a set of keys  
         """
         return
 

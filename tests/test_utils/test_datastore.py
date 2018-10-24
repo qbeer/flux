@@ -2,9 +2,8 @@ import unittest
 import os
 from filecmp import cmp as compare
 from flux.util.logging import log_message
-from .utils import internet_on, touch, TEST_ROOT, TMP, TMP_CONFIG, TEST_DATA
+from .utils import internet_on, touch, TMP, TMP_CONFIG, TEST_DATA
 from flux.backend.datastore import DataStore
-from flux.util.system import mkdir_p
 import shutil
 
 class DatastoreTestCases(unittest.TestCase):
@@ -41,8 +40,6 @@ class DatastoreTestCases(unittest.TestCase):
         self.dst_filepath1 = os.path.join(TMP, self.folder_key, self.folder1, self.filename1)
         self.dst_filepath2 = os.path.join(TMP, self.folder_key, self.folder1, self.filename2)
         self.dst_folderpath = os.path.join(TMP, self.folder_key, self.folder1)
-       
-        print("Build")
 
     def tearDown(self):
         if os.path.exists(self.folder_path1):

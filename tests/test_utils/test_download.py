@@ -1,4 +1,4 @@
-from flux.util.download import maybe_download, maybe_download_text
+from flux.util.download import maybe_download
 import unittest
 from flux.backend.globals import DATA_STORE
 import os
@@ -13,7 +13,7 @@ def internet_on():
     try:
         urlopen('http://216.58.192.142', timeout=1)
         return True
-    except urllib.error.URLError as err: 
+    except urllib.error.URLError:
         return False
 
 class DownloadTestCases(unittest.TestCase):
@@ -25,7 +25,6 @@ class DownloadTestCases(unittest.TestCase):
         if not internet_on():
             log_message("No internet.  All Download Test Ignored.")
             self.passed = True
-        
         self.sample_download_location = "https://www.w3.org/TR/PNG/iso_8859-1.txt"
         self.working_directory = DATA_STORE.working_directory
         self.sample_txt = os.path.join(TEST_ROOT, "test_data", "sample.txt")
@@ -35,4 +34,3 @@ class DownloadTestCases(unittest.TestCase):
         if not self.passed:
             self.assertTrue(compare(file_path, self.sample_txt))
         return
-        

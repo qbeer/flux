@@ -1,6 +1,4 @@
 import unittest
-import os
-
 class SystemTestCases(unittest.TestCase):
     """ Tests for Download Utilities """
 
