@@ -15,5 +15,4 @@ def internet_on():
 
 
 def touch(path):
-    with open(path, 'a'):
-        os.utime(path, None)
+    return open(path, 'w+').close()

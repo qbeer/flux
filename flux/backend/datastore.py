@@ -111,10 +111,11 @@ class DataStore():
 
         # If it's not already where it needs to go, move it
         fpath = os.path.join(self.root_filepath, *file_root_location)
-
-        mv_r(folder_path, os.path.join(file_to_location, fpath), overwrite=True)
+        folder_name = folder_path.split("/")[-1]
+        destination = os.path.join(file_to_location, fpath, folder_name)
+        mv_r(folder_path, destination, overwrite=True)
         db_entry = {
-            'fpath': os.path.join(file_to_location, fpath),
+            'fpath': destination,
             'hash': None,
             'folder': '1',
             'description': description

@@ -41,7 +41,9 @@ class DatastoreTestCases(unittest.TestCase):
         self.dst_filepath1 = os.path.join(TMP, self.folder_key, self.folder1, self.filename1)
         self.dst_filepath2 = os.path.join(TMP, self.folder_key, self.folder1, self.filename2)
         self.dst_folderpath = os.path.join(TMP, self.folder_key, self.folder1)
-    
+       
+        print("Build")
+
     def tearDown(self):
         if os.path.exists(self.folder_path1):
             shutil.rmtree(self.folder_path1)
@@ -49,6 +51,7 @@ class DatastoreTestCases(unittest.TestCase):
         # A file is added to rootpath + key + file
         # For example:  src- .flux/work/file1.txt
         #               dst- .fux/key1/file1.txt
+        print("Test Add get file")
         key1 = "file1"
         dst_filepath = os.path.join(TMP, key1, self.filename1)
         description1 = "Test for file1"
@@ -74,12 +77,14 @@ class DatastoreTestCases(unittest.TestCase):
         # A file is added to rootpath + key + folder
         # For example:  src- .flux/work/folder1/files*
         #               dst- .fux/key1/folder1/files*
-
+        print("Test add folder")
+        if not os.path.exists(self.filepath1):
+            touch(self.filepath1)
         description_folder = "This is folder containing _filepath1.txt and _filepath1.txt"
         entry = self.datastore.add_folder(self.folder_key, self.folder_path1, description_folder, True)
         self.assertTrue(entry['fpath'] == self.dst_folderpath)
         self.assertTrue(entry['description'] == description_folder)
-
+     
         with open(self.dst_filepath1, 'r') as data:
             data_info_dest = data.read()
         with open(self.dst_filepath2, 'r') as data:
@@ -93,6 +98,7 @@ class DatastoreTestCases(unittest.TestCase):
         return
 
     def test_add_rm_file(self):
+        print("Test add remove file")
         key1 = "file1"
         dst_filepath = os.path.join(TMP, key1, self.filename1)
         description1 = "Test for file1"
