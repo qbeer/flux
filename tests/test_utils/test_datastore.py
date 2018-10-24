@@ -1,6 +1,5 @@
 import unittest
 import os
-from filecmp import cmp as compare
 from flux.util.logging import log_message
 from .utils import internet_on, touch, TMP, TMP_CONFIG, TEST_DATA
 from flux.backend.datastore import DataStore
@@ -53,7 +52,6 @@ class DatastoreTestCases(unittest.TestCase):
         dst_filepath = os.path.join(TMP, key1, self.filename1)
         description1 = "Test for file1"
         file_entry = self.datastore.add_file(key1, self.filepath1, description1, force=True)
-        
         # If add_file ==> fpath should exist, file should be valid (hash and content)
         self.assertTrue(file_entry['fpath'] == dst_filepath)
         self.assertTrue(file_entry["description"] == description1)
@@ -81,7 +79,6 @@ class DatastoreTestCases(unittest.TestCase):
         entry = self.datastore.add_folder(self.folder_key, self.folder_path1, description_folder, True)
         self.assertTrue(entry['fpath'] == self.dst_folderpath)
         self.assertTrue(entry['description'] == description_folder)
-     
         with open(self.dst_filepath1, 'r') as data:
             data_info_dest = data.read()
         with open(self.dst_filepath2, 'r') as data:

@@ -28,7 +28,7 @@ class DownloadTestCases(unittest.TestCase):
         self.sample_download_location = "https://www.w3.org/TR/PNG/iso_8859-1.txt"
         self.working_directory = DATA_STORE.working_directory
         self.sample_txt = os.path.join(TEST_ROOT, "test_data", "sample.txt")
-    
+
     def test_maybe_download(self):
         file_path = maybe_download("sample.txt", self.sample_download_location, self.working_directory)
         if not self.passed:

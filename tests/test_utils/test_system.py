@@ -4,5 +4,3 @@ class SystemTestCases(unittest.TestCase):
 
     def __init__(self, *args, **kwargs):
         super(SystemTestCases, self).__init__(*args, **kwargs)
-
-        
