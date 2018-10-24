@@ -119,7 +119,6 @@ class DatastoreTestCases(unittest.TestCase):
     def test_update_hash(self):
         key1 = "file1"
         file_entry = self.datastore.add_file(key1, self.filepath1, "", force=True)
-        
         touch(file_entry['fpath'])
         # self.assertFalse(self.datastore.is_valid(key1)) TODO: This test doesn't pass?
         self.datastore.update_hash(key1)
