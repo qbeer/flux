@@ -123,4 +123,3 @@ class DatastoreTestCases(unittest.TestCase):
         # self.assertFalse(self.datastore.is_valid(key1)) TODO: This test doesn't pass?
         self.datastore.update_hash(key1)
         self.assertTrue(self.datastore.is_valid(key1))
-        
