@@ -102,6 +102,14 @@ def validate_subkeys(root_key, old_keys=None):
                 return False
     return True
 
+def retrieve_subkeys(root_key):
+    keys = []
+    for key in DATA_STORE.db.keys():
+        if key.startswith(root_key) and key != root_key:
+            if DATA_STORE.is_valid(key):
+                keys.append(key)
+    return keys
+
 
 def write_csv_file(root_key, filename, description):
 
@@ -118,6 +126,7 @@ def write_csv_file(root_key, filename, description):
 def register_to_datastore(data_path, root_key, description):
     root_length = len(data_path.split('/'))
     new_keys: List[str] = []
+    DATA_STORE.create_key(root_key, '', force=True)
     for root, _, filenames in os.walk(data_path):
         for filename in filenames:
             if not filename.endswith(".zip"):
@@ -125,7 +134,6 @@ def register_to_datastore(data_path, root_key, description):
                 key = key[: key.rfind('.')] if key.rfind('.') > 0 else key
                 new_keys.append(key)
                 DATA_STORE.add_file(os.path.join(root_key,key), os.path.join(root, filename), description, force=True)
-    DATA_STORE.create_key(root_key, '', force=True)
     return new_keys
 
 
@@ -146,6 +154,6 @@ def maybe_download_and_store_tar(url: str, root_key: str, description: str=None,
     if use_subkeys:
         keys = register_to_datastore(data_path, root_key, description)
     else:
-        DATA_STORE.create_key(root_key, 'root.key', force=True)
+        DATA_STORE.create_key(root_key, '', force=True)
 
     return [os.path.join(root_key, k) for k in keys] + [root_key]
