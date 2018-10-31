@@ -106,5 +106,13 @@ def untar(path: str) -> str:
         tar.extractall(path=output_fpath)
         tar.close()
         return output_fpath
+
+    elif (path.endswith("tar")):
+        log_message('Decompressing: {}'.format(path))
+        tar = tarfile.open(path, "r:")
+        output_fpath = os.path.join('/'.join(path.split('/')[:-1]),path.split('/')[-1][:-7])
+        tar.extractall(path=output_fpath)
+        tar.close()
+        return output_fpath   
     else:
         raise ValueError('Not a .tar.gz file: {}'.format(path))
