@@ -28,7 +28,7 @@ class DataStore():
     and making sure that files exist on the data backend.
     """
 
-    def __init__(self, root_filepath: str, config_file: str='.flux_config.json') -> None:
+    def __init__(self, root_filepath: str, config_file: str='.flux_config.json', testing=False) -> None:
         """Create a DataStore object
 
         Arguments:
@@ -62,6 +62,7 @@ class DataStore():
         self.working_directory = os.path.join(self.root_filepath, 'work')
         if not os.path.exists(self.working_directory):
             mkdir_p(self.working_directory)
+        self.testing = testing
 
         self.flush()
 
@@ -104,17 +105,17 @@ class DataStore():
         # proper location in the store based on key
         file_root_location = key.split('/')
         file_to_location = os.path.join(self.root_filepath, *file_root_location)
-
         # If the directory doesn't exist in our local file-store create it
         if not os.path.exists(file_to_location):
             mkdir_p(os.path.join(self.root_filepath, *file_root_location))
 
         # If it's not already where it needs to go, move it
         fpath = os.path.join(self.root_filepath, *file_root_location)
-
-        mv_r(folder_path, os.path.join(file_to_location, fpath), overwrite=True)
+        folder_name = folder_path.split("/")[-1]
+        destination = os.path.join(file_to_location, fpath, folder_name)
+        mv_r(folder_path, destination, overwrite=True)
         db_entry = {
-            'fpath': os.path.join(file_to_location, fpath),
+            'fpath': destination,
             'hash': None,
             'folder': '1',
             'description': description
@@ -218,6 +219,7 @@ class DataStore():
         if key in self.db:
             self.db[key]['hash'] = str(adler32(str(self.db[key]['fpath'])))
             self.flush()
+            
 
     def rehash_all(self,) -> None:
         pop_keys = []
@@ -269,4 +271,5 @@ class DataStore():
         try:
             shutil.rmtree(self.working_directory)
         except Exception as ex:
-            log_warning('Error removing working directory: {}'.format(str(ex)))
+            if not self.testing:
+                log_warning('Error removing working directory: {}'.format(str(ex)))
