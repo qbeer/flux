@@ -67,21 +67,39 @@ class DataStore():
         self.flush()
 
     def add_file(self, key: str, fpath: str, description: str=None, force: bool=False) -> Dict[str, Optional[str]]:
-        if key in self.db and not force:
+        """Add file to datastore
+
+        Arguments:
+            key {str} -- root_key folder where the file will be copied to
+
+        Returns:
+            file_key {str} -- key which points to the folder
+
+        """
+        file_name = fpath.split("/")[-1]
+        file_key = os.path.join(key, file_name)
+        
+        if file_key in self.db and not force:
             # The file already exists in our data store
-            return self.db[key]
+            return file_key
 
         # We're adding a file to the data-store. Move it to the
         # proper location in the store based on key
-        file_root_location = key.split('/')
-        file_to_location = os.path.join(
-            self.root_filepath, *file_root_location)
+        root_key_partial_path = key.split('/')
+        root_key_path = os.path.join(self.root_filepath, *root_key_partial_path)
 
         # If the directory doesn't exist in our local file-store create it
-        if not os.path.exists(file_to_location):
-            mkdir_p(file_to_location)
+        if not os.path.exists(root_key_path):
+            mkdir_p(root_key_path)
 
-        destination_file = os.path.join(file_to_location, fpath.split('/')[-1])
+        # Our destination file is .flux/root/file_name(no extension)/file_name
+        # Root_key: root
+        # File_key: root/filename(no extension)
+        destination_folder =  os.path.join(self.root_filepath, file_key)
+        destination_file = os.path.join(destination_folder, file_name)
+
+        if not os.path.exists(destination_folder):
+            mkdir_p(destination_folder)
         # If it's not already where it needs to go, move it
         if not os.path.exists(destination_file):
             os.rename(fpath, destination_file)
@@ -92,38 +110,50 @@ class DataStore():
             'folder': '0',
             'description': description
         }
-        self.db[key] = db_entry
+        self.db[file_key] = db_entry
         self.flush()
-        return self.db[key]
+        return file_key
 
     def add_folder(self, key: str, folder_path: str, description: str=None, force: bool=False) -> Dict[str, Optional[str]]:
-        if key in self.db and not force:
-            # The file already exists in our data store
-            return self.db[key]
+        """Add folder to datastore
 
-        # We're adding a file to the data-store. Move it to the
-        # proper location in the store based on key
-        file_root_location = key.split('/')
-        file_to_location = os.path.join(self.root_filepath, *file_root_location)
-        # If the directory doesn't exist in our local file-store create it
-        if not os.path.exists(file_to_location):
-            mkdir_p(os.path.join(self.root_filepath, *file_root_location))
+        Arguments:
+            key {str} -- root_key folder where the folder will be copied to
 
-        # If it's not already where it needs to go, move it
-        fpath = os.path.join(self.root_filepath, *file_root_location)
+        Returns:
+            folder_key {str} -- key which points to the folder
+
+        """
         folder_name = folder_path.split("/")[-1]
-        destination = os.path.join(file_to_location, fpath, folder_name)
-        mv_r(folder_path, destination, overwrite=True)
+        folder_key = os.path.join(key, folder_name)
+
+        if folder_key in self.db and not force:
+            # The file already exists in our data store
+            return folder_key
+
+        root_key_partial_path = key.split('/')
+        root_key_path = os.path.join(self.root_filepath, *root_key_partial_path)
+
+        # If our root_key is not built, build it.
+        if not os.path.exists(root_key_path):
+            mkdir_p(root_key_path)
+        
+        destination = os.path.join(root_key_path, folder_name)
+
+        # Notice we are moving the entire folder including the folder_name
+        # under destination.  Hence, fpath is one level deeper than where
+        # we move the destination
+        mv_r(folder_path, root_key_path, overwrite=True)
         db_entry = {
             'fpath': destination,
             'hash': None,
             'folder': '1',
             'description': description
         }
-        self.db[key] = db_entry
+        self.db[folder_key] = db_entry
         self.flush()
 
-        return self.db[key]
+        return folder_key
 
     def get_file(self, key: str) -> Optional[Dict[str, Optional[str]]]:
         """Get a file from the data-store

@@ -8,6 +8,7 @@ Available Languages:
 import tqdm
 import os
 import codecs
+import pickle
 
 import tensorflow as tf
 
@@ -106,13 +107,14 @@ class NMT(Dataset):
         self.num_val_examples = self._build_dataset("val", force_rebuild=force_rebuild)
         self.num_test_examples = self._build_dataset("test", force_rebuild=force_rebuild)
 
-        with open(DATA_STORE.create_key(src_dictionary_key, 'dict.pkl', force=True), 'wb') as pkl_file:
-            pickle.dump(self.src_dictionary, pkl_file)
-            DATA_STORE.update_hash(src_dictionary_key)
+        src_dictfile = DATA_STORE.create_key(src_dictionary_key, 'dict.pkl', force=True)
+        self.src_dictionary.save(src_dictfile)
+        DATA_STORE.update_hash(src_dictionary_key)
 
-        with open(DATA_STORE.create_key(for_dictionary_key, 'dict.pkl', force=True), 'wb') as pkl_file:
-            pickle.dump(self.dst_dictionary, pkl_file)
-            DATA_STORE.update_hash(for_dictionary_key)
+        for_dictfile = DATA_STORE.create_key(for_dictionary_key, 'dict.pkl', force=True)
+
+        self.dst_dictionary.save(for_dictfile)
+        DATA_STORE.update_hash(for_dictionary_key)
 
         self.word_vocab_size = len(self.src_dictionary.word_dictionary)
 
@@ -170,7 +172,7 @@ class NMT(Dataset):
                 for_dense, for_len = self.dst_dictionary.dense_parse(for_line, \
                                                                     word_padding=self.mwl, \
                                                                     char_padding=0)
-                feature_dict = self.build_feature_dict(src_dense[0], for_dense[0], src_len, for_len)
+                feature_dict = build_feature_dict(src_dense[0], for_dense[0], src_len, for_len)
 
                 example = tf.train.Example(features=tf.train.Features(feature=feature_dict))
                 tf_record_writer.write(example.SerializeToString())
