@@ -33,7 +33,7 @@ class PascalVOC:
     """
 
     def __init__(self, force_rebuild: bool=False, nohashcheck: bool=True) -> None:
-        file = "http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.tar"
+        tar_file = "http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.tar"
         self._classes = ('__background__', # always index 0
                          'aeroplane', 'bicycle', 'bird', 'boat',
                          'bottle', 'bus', 'car', 'cat', 'chair',
@@ -47,30 +47,27 @@ class PascalVOC:
         self.file_structure = os.path.join("VOCtrainval_11-May-2", "VOCdevkit", "VOC2012")
         
         work_file_path = os.path.join(DATA_STORE.working_directory, self.file_structure)
-        _annotation_path = os.path.join(work_file_path, "Annotations")
-        _problems = os.path.join(work_file_path, "ImageSets")
-        _images = os.path.join(work_file_path, "JPEGImages")
-        _segmentation_class = os.path.join(work_file_path, "SegmentationClass")
-        _segmentation_object = os.path.join(work_file_path, "SegmentationObject")
+        _annotation_path = os.path.join(work_file_path, "Annotations/")
+        _problems = os.path.join(work_file_path, "ImageSets/")
+        _images = os.path.join(work_file_path, "JPEGImages/")
+        _segmentation_class = os.path.join(work_file_path, "SegmentationClass/")
+        _segmentation_object = os.path.join(work_file_path, "SegmentationObject/")
         self.annotation_key = os.path.join(self.voc_root_key, "annotations")
         self.images_key = os.path.join(self.voc_root_key, "images")
         self.segmentation_key = os.path.join(self.voc_root_key, "segmentation", "class")
         self.segmentation_obj_key = os.path.join(self.voc_root_key, "segmentation", "obj")
-
+        self.problems_key = os.path.join(self.voc_root_key, "ImageSets")
         if force_rebuild:
             log_message("Copying data to destination folder in flux")
-            maybe_download_and_store_tar(url=file, root_key='pascal/voc/2012', use_subkeys=False)
-            DATA_STORE.add_folder(self.images_key, _images)
-            DATA_STORE.add_folder(self.segmentation_key, _segmentation_class)
-            DATA_STORE.add_folder(self.segmentation_obj, _segmentation_object)
-            DATA_STORE.add_folder(self.annotation_key, _annotation_path)
+            self.raw_data_key = maybe_download_and_store_tar(url=tar_file, root_key='pascal/voc/2012', use_subkeys=False)
+            self.images_key = DATA_STORE.add_folder(self.images_key, _images)
+            self.segmentation_key = DATA_STORE.add_folder(self.segmentation_key, _segmentation_class)
+            self.segmentation_obj_key = DATA_STORE.add_folder(self.segmentation_obj_key, _segmentation_object)
+            self.annotation_key = DATA_STORE.add_folder(self.annotation_key, _annotation_path)
+            self.problems_key = DATA_STORE.add_folder(self.problems_key, _problems)
+        problems_path = os.path.join(DATA_STORE.root_filepath, self.voc_root_key, "VOCdevkit", "VOC2012", "ImageSets")
 
-        self.problems_key = retrieve_subkeys(self.voc_root_key)
-        if len(self.problems_key) < 1:
-            log_message("Building Problem Keys")
-            self.problems_key = register_to_datastore(_problems, self.voc_root_key, "")
-            self.problems_key = [os.path.join(self.voc_root_key, key) for key in self.problems_key]
-
+        self.problems = [name for name in os.listdir(problems_path)]
         self.image_path = DATA_STORE[self.images_key]
         self.annotation_path = DATA_STORE[self.annotation_key]
         self.seg_class_path = DATA_STORE[self.segmentation_key]
@@ -118,20 +115,22 @@ class PascalVOC:
 
 class PascalVOC_Segmentation(PascalVOC):
 
-    def __init__(self, force_rebuild=False, num_parallel_reads=1, *args, **kwargs):
-        super(PascalVOC_Segmentation, self).__init__(args, kwargs)
+    def __init__(self, force_rebuild=False, num_parallel_reads=1):
+        super(PascalVOC_Segmentation, self).__init__(force_rebuild=force_rebuild)
         self.problem_name = "Segmentation"
-        self.problems = [problems for problems in self.problems_key if self.problem_name in problems]
+        self.problems = [problems for problems in self.problems if self.problem_name in problems]
 
-        train_tf_key = os.path.join(self.voc_root_key, self.problem_name.lower(), "tfrecord", "train")
-        self.train_path = DATA_STORE[train_tf_key]
-        val_tf_key = os.path.join(self.voc_root_key, self.problem_name.lower(), "tfrecord", "val")
-        self.val_path = DATA_STORE[val_tf_key]
+        self.train_tf_key = os.path.join(self.voc_root_key, self.problem_name.lower(), "tfrecord", "train")
+        self.val_tf_key = os.path.join(self.voc_root_key, self.problem_name.lower(), "tfrecord", "val")
 
         if force_rebuild:
             self.num_train_examples = self._build_dataset(dataset="train")
             self.num_val_examples = self._build_dataset(dataset="val")
+            self.train_path = DATA_STORE[self.train_tf_key]
+            self.val_path = DATA_STORE[self.val_tf_key]
         else:
+            self.train_path = DATA_STORE[self.train_tf_key]
+            self.val_path = DATA_STORE[self.val_tf_key]
             self.num_train_examples = sum(1 for _ in tf.python_io.tf_record_iterator(self.train_path))
             self.num_val_examples = sum(1 for _ in tf.python_io.tf_record_iterator(self.val_path))
         # Setup some default options for the dataset
@@ -193,15 +192,16 @@ class PascalVOC_Segmentation(PascalVOC):
                 num_objs)
 
     def _build_dataset(self, dataset):
-        _problem_key = [p for p in self.problems if p.endswith(dataset)]
+        _problem_key = self.problems[0]
         if len(_problem_key) < 1:
             log_warning("Problem key doesn't exist for {}.  ".format(dataset) + str(_problem_key))
             raise EnvironmentError()
-        problem_key = _problem_key[0]
-        tf_record_key = os.path.join(self.voc_root_key, self.problem_name.lower(), "tfrecord", dataset)        
-        log_message("Retrieving the index from " + problem_key)
-        assert(os.path.exists(DATA_STORE[problem_key]))
-        with open(DATA_STORE[problem_key], 'r') as f:
+        problem_path = os.path.join(DATA_STORE[self.problems_key], _problem_key, dataset+".txt")
+        
+        tf_record_key = self.train_tf_key if dataset == "train" else self.val_tf_key       
+        log_message("Retrieving the index from " + problem_path)
+        assert(os.path.exists(problem_path))
+        with open(problem_path, 'r') as f:
             images_index = [x.strip() for x in f.readlines()]
         tf_record_writer = tf.python_io.TFRecordWriter(DATA_STORE.create_key(tf_record_key, 'data.tfrecords', force=True))
 
