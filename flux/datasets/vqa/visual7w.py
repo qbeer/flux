@@ -41,7 +41,6 @@ class Visual7W(object):
         self.read_codes = read_codes
         self.code_shape = code_shape
         self.merge_qa = merge_qa
-        self.image_root_path = DATA_STORE["visual7w/data/images"]
         # Get all of the necessary data
         self.images_key = maybe_download_and_store_zip('http://vision.stanford.edu/yukezhu/visual7w_images.zip', 'visual7w/data/images', use_subkeys=False)
         # Get all of the necessary data
@@ -49,7 +48,8 @@ class Visual7W(object):
         # Get the grounding data
         self.grounding_key = maybe_download_and_store_zip("http://web.stanford.edu/~yukez/papers/resources/dataset_v7w_grounding_annotations.zip", "visual/data/grounding", use_subkeys=True)
         
-        
+        self.image_root_path = DATA_STORE[self.images_key[0]]
+
         # Compute the size of the datasets
         self.num_train_examples = 0
         self.num_val_examples = 0
@@ -65,15 +65,12 @@ class Visual7W(object):
         # Load the vocab files
         if not ignore_hashes and (force_rebuild or not DATA_STORE.is_valid(dict_key)):
             self.dictionary = NLPDictionary()
-            need_rebuild_train = True
-            need_rebuild_val = True
         else:
             self.dictionary = NLPDictionary().load(DATA_STORE[dict_key])
 
         self.train_fpath = os.path.join(root_key, 'tfrecord/train')
         self.val_fpath = os.path.join(root_key, 'tfrecord/val')
         self.test_fpath = os.path.join(root_key, 'tfrecord/test')
-
 
         if force_rebuild:
         # Now that we have the data, load and parse the JSON file
@@ -447,8 +444,8 @@ class Visual7W_Telling(Visual7W):
     """ One type of VQA Dataset
     http://web.stanford.edu/%7Eyukez/visual7w/
     """
-    def __init__(self, *args, **kwargs) -> None:
-        super(Visual7W_Telling, self).__init__(*args, data_type="telling", **kwargs)
+    def __init__(self, force_rebuild=False, *args, **kwargs) -> None:
+        super(Visual7W_Telling, self).__init__(*args, force_rebuild=force_rebuild, data_type="telling", **kwargs)
 
 
 

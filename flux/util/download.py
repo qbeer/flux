@@ -103,7 +103,7 @@ def maybe_download_google_drive(file_id:str, file_destination:str, force_downloa
         file_destination
     """
     if os.path.isfile(file_destination) and not force_download:
-        print("File already exists")
+        log_message("File already exists")
         return file_destination
 
     GOOGLE_URL = "https://docs.google.com/uc?export=download"

@@ -40,7 +40,7 @@ class CelebA(Dataset):
         self.root_key = "celebA"
         self.num_attr = 40
         log_message("Retrieving CelebA data")
-        self.keys = maybe_download_and_store_google_drive(file_pair, root_key=self.root_key, force_download=force_download, use_subkeys=False)
+        self.keys = maybe_download_and_store_google_drive(file_pair, root_key=self.root_key, force_download=force_download, use_subkeys=False, keep_root=False)
         if len(self.keys) == 0:
             log_warning("Download Failed, change force_download=True")
             return

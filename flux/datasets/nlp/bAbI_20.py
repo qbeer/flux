@@ -46,7 +46,7 @@ class bAbI_20:
 
 
     def __init__(self, num_parallel_reads=1, sample_only=True, force_rebuild=True, nohashcheck=True, subset="en", wml=8, cml=10):
-        self.task_root = "tasks_1-20_v1-2"
+        self.task_root = "bAbI"
         self.subset = subset
         url = "http://www.thespermwhale.com/jaseweston/babi/tasks_1-20_v1-2.tar.gz"
         self.keys = maybe_download_and_store_tar(url=url, root_key=self.task_root)
@@ -58,12 +58,10 @@ class bAbI_20:
         dict_name = self.task_root + "/dictionary"
         self.train_record_root = 'tasks_1-20_v1-2/tfrecord/train'
         self.val_record_root = 'tasks_1-20_v1-2/tfrecord/dev'
-
         if not force_rebuild and DATA_STORE.is_valid(dict_name, nohashcheck=nohashcheck):
             with open(DATA_STORE[dict_name], 'rb') as pkl_file:
-                self.dictionary = pickle.load(pkl_file)
-        else:
-            self.dictionary = NLPDictionary()
+                self.nlp_dict = NLPDictionary.load(DATA_STORE[dict_name])
+
 
         # Build the training set if necessary
         self.sample_num_train_examples = self.build_dataset(train=True, sample=True, force_rebuild=force_rebuild, nohashcheck=nohashcheck)
@@ -87,12 +85,11 @@ class bAbI_20:
         # self.dev_fpath = DATA_STORE[self.val_record_root]
 
         # Save the dictionary
-        with open(DATA_STORE.create_key(dict_name, 'dict.pkl', force=True), 'wb') as pkl_file:
-            pickle.dump(self.dictionary, pkl_file)
-            DATA_STORE.update_hash(dict_name)
+        self.nlp_dict.save(DATA_STORE.create_key(dict_name, 'dict.pkl', force=True))
+        DATA_STORE.update_hash(dict_name)
 
-        self.word_vocab_size = len(self.dictionary.word_dictionary)
-        self.char_vocab_size = len(self.dictionary.char_dictionary)
+        self.word_vocab_size = len(self.nlp_dict.word_dictionary)
+        self.char_vocab_size = len(self.nlp_dict.char_dictionary)
 
         self._sample_val_db = None
         self._sample_train_db = None
@@ -112,6 +109,8 @@ class bAbI_20:
             task_path = task_key + "_test"
         else:
             task_path = task_key + "_train" if is_train else task_key
+
+        task_path = [k for k in self.keys if task_path in k][0]
         
         if not DATA_STORE.is_valid(task_path):
             raise NameError("{0} does not exist.".format(task_path))
@@ -133,7 +132,7 @@ class bAbI_20:
         if force_rebuild:
             log_message('Building dataset ({})...'.format('Train' if train else 'Valid'))
 
-            task_path = "{0}/{1}/{2}/{3}"
+            task_path = "{0}/{1}"
             
             for task in tqdm.tqdm(bAbI_20.task_list):
                 if not train:
@@ -145,7 +144,7 @@ class bAbI_20:
                 tf_record_writer = tf.python_io.TFRecordWriter(
                 DATA_STORE.create_key(task_tf_root, record_name,force=force_rebuild))
 
-                task_path = task_path.format(self.task_root, self.task_root, subset, task_id)
+                task_path = task_path.format(subset, task_id)
                 data_path = self.read_file_from_db(train, task_path)
 
                 txt = self.read_txt(data_path)
@@ -302,18 +301,18 @@ class bAbI_20:
 
     def _map_fn(self, serialized_example):
         feature_dict = {}
-        feature_dict['context_word_embedding'] =  tf.FixedLenFeature([UNIT_SIZE, self.wml], tf.int64)
+        feature_dict['context_word_embedding'] =  tf.FixedLenFeature([UNIT_SIZE*self.wml], tf.int64)
     #     feature_dict['context_char_embedding'] = tf.FixedLenFeature([15, mwl, mcl], tf.int64)
-        feature_dict['question_word_embedding'] = tf.FixedLenFeature([QA, self.wml], tf.int64)
+        feature_dict['question_word_embedding'] = tf.FixedLenFeature([UNIT_SIZE*self.wml//QA], tf.int64)
     #     feature_dict['question_char_embedding'] = tf.FixedLenFeature([5, mwl, mcl], tf.int64)
-        feature_dict['answer_word_embedding'] = tf.FixedLenFeature([QA, self.wml], tf.int64)
+        feature_dict['answer_word_embedding'] = tf.FixedLenFeature([UNIT_SIZE*self.wml//QA], tf.int64)
     #     feature_dict['answer_char_embedding'] = tf.FixedLenFeature([5, mwl, mcl], tf.int64)
 
         feature_dict['word_maxlen'] = tf.FixedLenFeature([], tf.int64)
     #     feature_dict['char_maxlen'] = tf.FixedLenFeature([], tf.int64)
         feature_dict['context_word_len'] = tf.FixedLenFeature([UNIT_SIZE],tf.int64)
-        feature_dict['question_word_len'] = tf.FixedLenFeature([QA],tf.int64)
-        feature_dict['answer_word_len'] = tf.FixedLenFeature([QA],tf.int64)
+        feature_dict['question_word_len'] = tf.FixedLenFeature([UNIT_SIZE//QA],tf.int64)
+        feature_dict['answer_word_len'] = tf.FixedLenFeature([UNIT_SIZE//QA],tf.int64)
 
 
         features = tf.parse_single_example(\

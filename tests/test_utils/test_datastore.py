@@ -43,42 +43,48 @@ class DatastoreTestCases(unittest.TestCase):
     def tearDown(self):
         if os.path.exists(self.folder_path1):
             shutil.rmtree(self.folder_path1)
-    def test_add_get_file(self):
+
+    def test_add_get_file(self,):
+        self.add_get_file(True)
+        self.add_get_file()
+    def add_get_file(self, create_folder=False):
         # A file is added to rootpath + key + file
         # For example:  src- .flux/work/file1.txt
         #               dst- .fux/key1/file1.txt
-        print("Test Add get file")
+        log_message("Test Add get file")
         key1 = "file1"
-        dst_filepath = os.path.join(TMP, key1, self.filename1)
+        if create_folder:
+            dst_filepath = os.path.join(TMP, key1, self.filename1.split(".")[0], self.filename1)
+        else:
+            dst_filepath = os.path.join(TMP, key1, self.filename1)
         description1 = "Test for file1"
-        file_entry = self.datastore.add_file(key1, self.filepath1, description1, force=True)
+        result_key = self.datastore.add_file(key1, self.filepath1, description1, force=True, create_folder=create_folder)
+        print(self.datastore.db.keys())
+        self.assertTrue(self.datastore.is_valid(result_key))
         # If add_file ==> fpath should exist, file should be valid (hash and content)
+        file_entry = self.datastore.get_file(result_key)
         self.assertTrue(file_entry['fpath'] == dst_filepath)
         self.assertTrue(file_entry["description"] == description1)
-
-        get_file_entry = self.datastore.get_file(key1)
-        self.assertTrue(get_file_entry['fpath'] == dst_filepath)
-        self.assertTrue(get_file_entry["description"] == description1)
 
         with open(dst_filepath, 'r') as data2:
             data2_info = data2.read()
 
         self.assertTrue(self.data_info == data2_info)
-        self.assertTrue(self.datastore.is_valid(key1))
 
 
-    def test_add_folder(self):
+    def test_add_folder_keep_root(self):
         # Adding the entire folder to the key location
         # A file is added to rootpath + key + folder
         # For example:  src- .flux/work/folder1/files*
         #               dst- .fux/key1/folder1/files*
-        print("Test add folder")
+        log_message("Test add folder")
         if not os.path.exists(self.filepath1):
             touch(self.filepath1)
         description_folder = "This is folder containing _filepath1.txt and _filepath1.txt"
-        entry = self.datastore.add_folder(self.folder_key, self.folder_path1, description_folder, True)
-        self.assertTrue(entry['fpath'] == self.dst_folderpath)
-        self.assertTrue(entry['description'] == description_folder)
+        data_key = self.datastore.add_folder(self.folder_key, self.folder_path1, description_folder, True, keep_root=True)
+        self.assertTrue(self.datastore.is_valid(data_key))
+        entry = self.datastore[data_key]
+        self.assertTrue(entry == self.dst_folderpath)
         with open(self.dst_filepath1, 'r') as data:
             data_info_dest = data.read()
         with open(self.dst_filepath2, 'r') as data:
@@ -87,25 +93,57 @@ class DatastoreTestCases(unittest.TestCase):
         self.assertTrue(self.data_info == data_info_dest)
         self.assertTrue(self.data_info2 == data_info2_dest)
 
-        self.assertTrue(self.datastore.is_valid(self.folder_key))
+
+        self.assertTrue(self.datastore.is_valid(data_key))
+        # TODO: hash for a folder not implemented
+        return
+
+    def test_add_folder(self):
+        # Adding the entire folder to the key location
+        # A file is added to rootpath + key + folder
+        # For example:  src- .flux/work/folder1/files*
+        #               dst- .fux/key1/folder1/files*
+        log_message("Test add folder")
+        if not os.path.exists(self.filepath1):
+            touch(self.filepath1)
+        description_folder = "This is folder containing _filepath1.txt and _filepath1.txt"
+        new_folder_path1 = os.path.join(TEST_DATA, self.folder1, self.folder1, self.filename1)
+        new_folder_path2 = os.path.join(TEST_DATA, self.folder1, self.folder1, self.filename2)
+        os.makedirs(os.path.join(TEST_DATA, self.folder1, self.folder1))
+        shutil.copyfile(self.filepath1, new_folder_path1)
+        shutil.copyfile(self.filepath2, new_folder_path2)
+        data_key = self.datastore.add_folder(self.folder_key, self.folder_path1, description_folder, True, keep_root=False)
+        self.assertTrue(self.datastore.is_valid(data_key))
+        entry = self.datastore[data_key]
+        self.assertTrue(entry == self.dst_folderpath)
+        with open(self.dst_filepath1, 'r') as data:
+            data_info_dest = data.read()
+        with open(self.dst_filepath2, 'r') as data:
+            data_info2_dest = data.read()
+
+        self.assertTrue(self.data_info == data_info_dest)
+        self.assertTrue(self.data_info2 == data_info2_dest)
+
+        self.assertTrue(self.datastore.is_valid(data_key))
         # TODO: hash for a folder not implemented
         return
 
     def test_add_rm_file(self):
-        print("Test add remove file")
+        log_message("Test add remove file")
         key1 = "file1"
         dst_filepath = os.path.join(TMP, key1, self.filename1)
         description1 = "Test for file1"
-        file_entry = self.datastore.add_file(key1, self.filepath1, description1, force=True)
+        file_key = self.datastore.add_file(key1, self.filepath1, description1, force=True, create_folder=False)
+        file_entry = self.datastore.get_file(file_key)
         self.assertTrue(file_entry['fpath'] == dst_filepath)
         self.assertTrue(file_entry["description"] == description1)
-        self.assertTrue(self.datastore.has_key(key1))
-        self.assertTrue(self.datastore.is_valid(key1))
+        self.assertTrue(self.datastore.has_key(file_key))
+        self.assertTrue(self.datastore.is_valid(file_key))
         # Here, file exists and is valid.
-        self.datastore.remove_file(key1)
+        self.datastore.remove_file(file_key)
 
         # Then the key shouldn't exist
-        self.assertFalse(self.datastore.has_key(key1))
+        self.assertFalse(self.datastore.has_key(file_key))
 
         dst_filepath = os.path.join(TMP, key1, self.filename1)
 
@@ -113,13 +151,14 @@ class DatastoreTestCases(unittest.TestCase):
         self.assertFalse(os.path.exists(dst_filepath))
 
         # Data is invalid
-        self.assertFalse(self.datastore.is_valid(key1))
+        self.assertFalse(self.datastore.is_valid(file_key))
         return
 
     def test_update_hash(self):
         key1 = "file1"
-        file_entry = self.datastore.add_file(key1, self.filepath1, "", force=True)
-        touch(file_entry['fpath'])
+        file_key = self.datastore.add_file(key1, self.filepath1, "", force=True)
+        file_entry = self.datastore[file_key]
+        touch(file_entry)
         # self.assertFalse(self.datastore.is_valid(key1)) TODO: This test doesn't pass?
-        self.datastore.update_hash(key1)
-        self.assertTrue(self.datastore.is_valid(key1))
+        self.datastore.update_hash(file_key)
+        self.assertTrue(self.datastore.is_valid(file_key))

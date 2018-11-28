@@ -66,7 +66,7 @@ class DataStore():
 
         self.flush()
 
-    def add_file(self, key: str, fpath: str, description: str=None, force: bool=False) -> Dict[str, Optional[str]]:
+    def add_file(self, key: str, fpath: str, description: str=None, create_folder: bool=True, force: bool=False) -> Dict[str, Optional[str]]:
         """Add file to datastore
 
         Arguments:
@@ -76,8 +76,11 @@ class DataStore():
             file_key {str} -- key which points to the folder
 
         """
+        if not os.path.isfile(fpath):
+            log_warning(fpath + " is not a valid filepath to add.")
+            return None
         file_name = fpath.split("/")[-1]
-        file_key = os.path.join(key, file_name)
+        file_key = os.path.join(key, file_name.split(".")[0])
         
         if file_key in self.db and not force:
             # The file already exists in our data store
@@ -96,13 +99,17 @@ class DataStore():
         # Root_key: root
         # File_key: root/filename(no extension)
         destination_folder =  os.path.join(self.root_filepath, file_key)
-        destination_file = os.path.join(destination_folder, file_name)
+        if create_folder:
+            if not os.path.exists(destination_folder):
+                mkdir_p(destination_folder)
+            destination_file = os.path.join(destination_folder, file_name)
+        else:
+            destination_file = os.path.join(root_key_path, file_name)
 
-        if not os.path.exists(destination_folder):
-            mkdir_p(destination_folder)
+
         # If it's not already where it needs to go, move it
         if not os.path.exists(destination_file):
-            os.rename(fpath, destination_file)
+            shutil.copyfile(fpath, destination_file)
 
         db_entry = {
             'fpath': destination_file,
@@ -114,12 +121,17 @@ class DataStore():
         self.flush()
         return file_key
 
-    def add_folder(self, key: str, folder_path: str, description: str=None, force: bool=False) -> Dict[str, Optional[str]]:
+    def add_folder(self, key: str, folder_path: str, description: str=None, force: bool=False, keep_root=True) -> Dict[str, Optional[str]]:
         """Add folder to datastore
+
+        The general structure of folder path in flux will be {FLUX_PATH}/key/folder_key(folder_name)/.
+        Depends on how the folder is zipped by the source, we may have folder_name/folder_name path structure.  In this case, mv_r would
+        copy resulting folder as {FLUX_PATH}/key/folder_name/folder_name, while the key points to previous structure.
+        So to allow various folder_path structures, keep_root is introduced. 
 
         Arguments:
             key {str} -- root_key folder where the folder will be copied to
-
+            keep_root{boolean} -- Set to True if folder_path is {FLUX}/work/folder_name/folder_name
         Returns:
             folder_key {str} -- key which points to the folder
 
@@ -138,14 +150,16 @@ class DataStore():
         if not os.path.exists(root_key_path):
             mkdir_p(root_key_path)
         
-        destination = os.path.join(root_key_path, folder_name)
+        if keep_root:
+            destination = os.path.join(root_key_path, folder_name)
+        else:
+            destination = root_key_path
 
-        # Notice we are moving the entire folder including the folder_name
-        # under destination.  Hence, fpath is one level deeper than where
-        # we move the destination
-        mv_r(folder_path, root_key_path, overwrite=True)
+        mv_r(folder_path, destination, overwrite=True)
+
+        # foldername is kept
         db_entry = {
-            'fpath': destination,
+            'fpath': os.path.join(root_key_path, folder_name),
             'hash': None,
             'folder': '1',
             'description': description
@@ -182,7 +196,7 @@ class DataStore():
         else:
             return None
 
-    def remove_file(self, key: str) -> None:
+    def remove_file(self, key: str, folder_exists=False) -> None:
         """Remove a file from the DB-Store
 
         Arguments:
@@ -195,12 +209,28 @@ class DataStore():
         if key not in self.db:
             return
         else:
-            if os.path.exists(str(self.db[key]['fpath'])):
-                shutil.rmtree(os.path.join(
-                    self.root_filepath, *key.split('/')))
-                self.db.pop(key, None)
-                self.flush()
+            if folder_exists:
+                if os.path.exists(str(self.db[key]['fpath'])):
+                    os.remove(str(self.db[key]['fpath']))
+                    os.removedirs(os.path.join(self.root_filepath, key))
+                    self.db.pop(key, None)
+                    self.flush()
+            else:
+                if os.path.exists(str(self.db[key]['fpath'])):
+                    os.remove(str(self.db[key]['fpath']))
+                    self.db.pop(key, None)
+                    self.flush()
+                return
+
+    def remove_key(self, key) -> None:
+        if key not in self.db:
             return
+        key_path = os.path.join(self.root_filepath, *key.split("/"))
+        if os.path.exists(key_path):
+            shutil.rmtree(key_path)
+            self.db.pop(key, None)
+            self.flush()
+        return
 
     def has_key(self, key: str) -> bool:
         """Return if the data-store contains a particular key
@@ -222,7 +252,7 @@ class DataStore():
             if not force and self.is_valid(key):
                 raise KeyExistsError('Can\'t create key: {}! It already exists!'.format(key))
             else:
-                self.remove_file(key)
+                self.remove_key(key)
 
         # We're adding a file to the data-store. Move it to the
         # proper location in the store based on key
