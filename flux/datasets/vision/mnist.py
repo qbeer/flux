@@ -99,10 +99,10 @@ class MNIST():
             self.test_images, self.test_labels = build_dataset(self.test_images_key, self.test_labels_key, one_hot)
 
             pickle_dict = {
-                'train_im': self.train_images,
-                'train_lb': self.train_labels,
-                'test_im': self.test_images,
-                'test_lb': self.test_labels,
+                'train_images': self.train_images,
+                'train_labels': self.train_labels,
+                'test_images': self.test_images,
+                'test_labels': self.test_labels,
             }
 
             with open(DATA_STORE.create_key('mnist/pickle', 'mnist.pkl', force=True), 'wb') as pkl_file:
